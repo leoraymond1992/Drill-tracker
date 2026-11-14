@@ -130,7 +130,8 @@ const FT_ROWS=['Casing','Coring','Reaming Rods','Reaming Casing','Rod Pull','Tes
 const HR_ROWS=['Directional','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
 const FROMTO=[['from','From (m)','num'],['to','To (m)','num']];
 const ACTS={
- rodpull:{n:'Rod pull',ic:'⬆️',b:'Rod Pull',f:[...FROMTO,['count','# of rods','num']]},
+ rodpull:{n:'Pulling rods (trip out)',ic:'⬆️',b:'Rod Pull',f:[['depth','Depth (m)','num'],['count','# of rods out','num']]},
+ rodin:{n:'Lowering rods (trip in)',ic:'⬇️',b:'Rod Pull',f:[['depth','Depth (m)','num'],['count','# of rods in','num']]},
  mech:{n:'Mechanical / repair',ic:'🔧',b:'Repair Maintenance',f:[['desc','What was fixed / serviced','text']]},
  test:{n:'Test / survey',ic:'🧭',b:'Testing',f:[['depth','Test depth (m)','num'],['tool','Tool','text','Omni']]},
  wash:{n:'Washing hole',ic:'💧',b:'Hole Stabilizing',f:[['depth','Depth (m)','num'],['eos','At end of shift (E.O.S.)','check']]},
@@ -146,7 +147,7 @@ const ACTS={
  other:{n:'Other',ic:'📝',b:'Standby',f:[['desc','What','text']]}
 };
 const DEFMAP=Object.fromEntries(Object.entries(ACTS).map(([k,v])=>[k,v.b]));DEFMAP.preop='Repair Maintenance';
-const DEF={driller:'Leo',company:'Full Force Drilling',shift:'Night',size:'NQ',runLen:3,round:0.25,shiftLen:12,travelInShift:true,travel:1,preop:0.5,hitchStart:'',autoNext:true,wake:false,map:DEFMAP,
+const DEF={driller:'Leo',company:'Full Force Drilling',shift:'Night',size:'NQ',runLen:3,round:0.25,shiftLen:12,travelInShift:true,travel:1,preop:0.5,hitchStart:'',hitchShift:'Night',autoNext:true,wake:false,map:DEFMAP,
  quick:'Landing ring,Core lifter,Lifter case,Stop ring,Inner tube head,O-rings,Polymer,Bentonite,Rod grease,Pump packing'};
 
 /* ===== State ===== */
@@ -154,7 +155,8 @@ let S;
 function load(){
  try{S=JSON.parse(localStorage.getItem(KEY)||'null')}catch(e){S=null}
  if(!S||typeof S!=='object'||!S.days)S={v:1,days:{},cur:null,run:null};
- S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),S.settings||{});
+ const prevSet=S.settings||{};
+ S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),prevSet);
  S.settings.map=Object.assign({},DEFMAP,S.settings.map||{});
  if(S.cur&&!S.days[S.cur])S.cur=null;
  // v2 migration: directional fields (old cross from/to/m = counted drilled metres; old runs = regular)
@@ -162,6 +164,10 @@ function load(){
   ['runs','acts','bits','cons'].forEach(k=>{if(!Array.isArray(d[k]))d[k]=[]});d.runs.forEach(r=>{if(r.dir==null)r.dir=false})});
  if(S.run&&S.run.dir==null)S.run.dir=false;
  if((S.v||1)<2)S.v=2;
+ // v3 migration: hitch Days/Nights default; old rod-pull entries stay pulls (depth defaults from 'from'); rodin map default already in DEFMAP
+ if(!('hitchShift' in prevSet)||!S.settings.hitchShift)S.settings.hitchShift=S.settings.shift||'Night';
+ Object.values(S.days).forEach(d=>{(d.acts||[]).forEach(a=>{if(a.type==='rodpull'&&a.f&&a.f.depth==null&&a.f.from!=null)a.f.depth=a.f.from})});
+ if((S.v||1)<3)S.v=3;
 }
 function save(){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('⚠ Could not save: '+e.message)}}
 const D=()=>S.cur?S.days[S.cur]:null;
@@ -232,7 +238,8 @@ function buildComments(d){
   switch(a.type){
    case'test':s=`-Took test @ ${dd(f.depth)}m with ${f.tool||'Omni'} ${h}`;break;
    case'wash':s=`-Washed hole @ ${f.eos?'E.O.S.':dd(f.depth)+'m'} ${h}`;break;
-   case'rodpull':s=`-Pulled ${f.count?f.count+' rods':'rods'} from ${dd(f.from)}m to ${dd(f.to)}m ${h}`;break;
+   case'rodpull':s=(f.from!=null||f.to!=null)?`-Pulled ${f.count?f.count+' rods':'rods'} from ${dd(f.from)}m to ${dd(f.to)}m ${h}`:`-Pulled ${f.count?f.count+' rods':'rods'} @ ${dd(f.depth)}m ${h}`;break;
+   case'rodin':s=`-Lowered rods back in${f.depth!=null?' @ '+dd(f.depth)+'m':''} ${h}`;break;
    case'mech':s=`-${ds||'Repair / maintenance'} ${h}`;break;
    case'standby':s=`-Standby${ds?' - '+ds:''} ${h}`;break;
    case'moving':s=`-Moved drill${ds?' - '+ds:''} ${h}`;break;
@@ -273,7 +280,7 @@ function agg(days){
  BUCKETS.forEach(b=>o.B[b]=0);
  days.forEach(d=>{const c=dayCalc(d);o.coredM+=c.coredM;o.total+=c.total;Object.entries(c.B).forEach(([k,v])=>o.B[k]=(o.B[k]||0)+v.h);
   const mc=c.mine;o.dir+=mc.dir;o.cred+=mc.cred;o.dirM+=mc.dirM;o.counted+=mc.counted;o.dirRuns+=(d.runs||[]).filter(r=>r.dir).length;o.runs+=(d.runs||[]).length;(d.runs||[]).forEach(r=>o.blocks+=runStats(r).blocks);
-  (d.acts||[]).forEach(a=>{if(a.type==='rodpull'){o.rodPulls++;o.rods+=a.f?.count||0}if(a.type==='test')o.tests++});
+  (d.acts||[]).forEach(a=>{if(a.type==='rodpull'||a.type==='rodin'){o.rodPulls++;o.rods+=a.f?.count||0}if(a.type==='test')o.tests++});
   o.bitCh+=(d.bits||[]).length;
   const cr=d.cross||{},cc=crossCalc(cr);o.cross.m+=cc.drill;o.cross.dir+=cc.dir;o.cross.cred+=cc.cred;o.cross.dirM+=cc.dirM;o.cross.counted+=cc.counted;if(cr.rodpull)o.cross.rp++;
   (d.cons||[]).forEach(x=>{const k=String(x.item).trim();o.cons[k]=(o.cons[k]||0)+(x.qty||1)});
@@ -325,7 +332,7 @@ function setPath(o,p,v){const ks=p.split('.');let x=o;ks.slice(0,-1).forEach(k=>
 function inp(path,label,t='text',o){ // bound to current day (data-b) or settings (data-sb)
  const isS=o&&o.s,obj=isS?S.settings:D(),v=getPath(obj,path),attr=isS?'data-sb':'data-b';
  if(t==='check')return `<label class="chk"><input type="checkbox" ${attr}="${path}" ${v?'checked':''}> ${esc(label)}</label>`;
- if(t==='select')return `<label>${esc(label)}<select ${attr}="${path}">${o.opts.map(x=>`<option ${String(x)===String(v)?'selected':''}>${esc(x)}</option>`).join('')}</select></label>`;
+ if(t==='select')return `<label>${esc(label)}<select ${attr}="${path}">${o.opts.map(x=>{const[val,lab]=Array.isArray(x)?x:[x,x];return `<option value="${esc(val)}" ${String(val)===String(v)?'selected':''}>${esc(lab)}</option>`}).join('')}</select></label>`;
  if(t==='textarea')return `<label>${esc(label)}<textarea ${attr}="${path}" rows="${o?.rows||3}" placeholder="${esc(o?.ph||'')}">${esc(v??'')}</textarea></label>`;
  const type=t==='num'?'number':t==='date'?'date':'text';
  return `<label>${esc(label)}<input ${attr}="${path}" data-t="${t}" type="${type}" ${t==='num'?'inputmode="decimal" step="any"':''} value="${esc(v??'')}" placeholder="${esc(o?.ph||'')}" autocomplete="off"></label>`;
@@ -549,7 +556,7 @@ function aggCard(title,days,nav){
   ${sumKv({drill:o.coredM,dir:o.dir,cred:o.cred,counted:o.counted,dirM:o.dirM},'a')}
   <div class="kv"><span>Runs (directional) · blocks</span><b>${o.runs} (${o.dirRuns}) · ${o.blocks}</b></div>
   <div class="kv"><span>Avg per full run</span><b>${fdur(sx.avg)}</b></div>
-  <div class="kv"><span>Rod pulls (rods)</span><b>${o.rodPulls} (${o.rods})</b></div>
+  <div class="kv"><span>Rod trips (rods)</span><b>${o.rodPulls} (${o.rods})</b></div>
   <div class="kv"><span>Tests</span><b>${o.tests}</b></div>
   <div class="kv"><span>Bit / shell changes</span><b>${o.bitCh}</b></div>
   <h3>Hours by category</h3>
@@ -567,7 +574,7 @@ function vTotals(){
  const nav=`<div class="row noprint" style="margin-bottom:8px"><button class="btn ghost sm" data-a="per" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center"><b>${nice(p.start)} – ${nice(p.end)}</b></div><button class="btn ghost sm" data-a="per" data-v="1">▶</button></div>`;
  let h=aggCard('Pay period',pd,nav);
  const hi=hitchInfo(todayStr());
- if(!hi)h+=`<div class="card"><h2>Hitch (28 on / 14 off)</h2><p class="mut">Set your hitch start date to track day X of 28.</p>${inp('hitchStart','First day of a hitch','date',{s:true})}</div>`;
+ if(!hi)h+=`<div class="card"><h2>Hitch (28 on / 14 off)</h2><p class="mut">Set your hitch start date to track day X of 28.</p><div class="g2">${inp('hitchStart','First day of a hitch','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div></div>`;
  else{
   const hs=addDays(hi.start,hitchOff*42),he=addDays(hs,27);
   const status=hi.on?`<div class="big amb" style="font-size:44px">Day ${hi.day} of 28</div><div class="c mut">Last day ${nice(hi.end)} · ${28-hi.day} days left</div>`:`<div class="big grn" style="font-size:40px">Off · day ${hi.day} of 14</div><div class="c mut">Back on ${nice(hi.back)}</div>`;
@@ -601,7 +608,7 @@ function vSettings(){
  <div class="g2">${inp('travel','Daily travel (h)','num',{s:true})}${inp('preop','Daily pre-op (h)','num',{s:true})}</div>
  ${inp('round','Round report hours to','select',{s:true,opts:[0.1,0.25,0.5]})}
  ${inp('travelInShift','Travel counts inside the shift length','check',{s:true})}
- ${inp('hitchStart','Hitch start date (any first day of a 28-on)','date',{s:true})}
+ <div class="g2">${inp('hitchStart','Hitch start date (any first day of a 28-on)','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
  ${inp('autoNext','Auto-start next run when tube is out','check',{s:true})}
  ${inp('wake','Keep screen awake while app is open','check',{s:true})}
  ${inp('quick','Consumable quick buttons (comma separated)','textarea',{s:true})}
@@ -623,8 +630,8 @@ function pauseRun(ts=Date.now()){if(!S.run)return false;const s=curSeg();if(s.t=
 function resumeRun(ts=Date.now()){if(!S.run)return;const s=curSeg();if(s.t!=='pause')return;s.e=ts;openSeg(S.run.resume||'drill',s.p,ts)}
 function startRunAt(from,ts=Date.now()){const d=D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
 function newDayObj(){
- const last=lastDay(),now=new Date();let date=todayStr();if((last?.shift||S.settings.shift)==='Night'&&now.getHours()<8)date=addDays(date,-1);
- const d={id:uid(),date,shift:last?.shift||S.settings.shift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:last?.helper||'',
+ const last=lastDay(),now=new Date();const defShift=S.settings.hitchShift||S.settings.shift;let date=todayStr();if(defShift==='Night'&&now.getHours()<8)date=addDays(date,-1);
+ const d={id:uid(),date,shift:defShift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:last?.helper||'',
   startDepth:last?dayDepth(last):null,curDepth:null,travel:+S.settings.travel||0,preop:+S.settings.preop||0,dir:0,cross:{},runs:[],acts:[],bits:[],cons:[],reportNotes:'',notes:'',comments:null,created:Date.now()};
  S.days[d.id]=d;S.cur=d.id;return d;
 }
@@ -637,6 +644,14 @@ function copyText(t){
 }
 const mmss=ms=>`${Math.floor(ms/60000)}:${pad(Math.floor(ms%60000/1000))}`;
 const pmmss=s=>{const m=String(s||'').trim().match(/^(\d+)(?::(\d{1,2}))?$/);return m?(+m[1]*60+(+(m[2]||0)))*1000:null};
+function actFields(type,f,cur){const def=ACTS[type],ff=f||{};
+ const base=(def?def.f:[]).map(([k,l,t,dv])=>({k,l,t,v:f?ff[k]:(dv??((k==='depth'||k==='from')?cur:null))}));
+ if(type==='rodpull'&&(ff.from!=null||ff.to!=null)&&!base.some(x=>x.k==='from')){
+  const i=base.findIndex(x=>x.k==='depth');const extra=[{k:'from',l:'From (m)',t:'num',v:ff.from},{k:'to',l:'To (m)',t:'num',v:ff.to}];
+  if(i>=0)base.splice(i+1,0,...extra);else base.unshift(...extra);
+ }
+ return base}
+function actFieldKeys(type,f){return actFields(type,f||{}).map(x=>x.k)}
 const A={
  tab(el){tab=el.dataset.v;if(tab!=='days')viewDay=null;window.scrollTo(0,0);render()},
  async newShift(){const d=D();
@@ -676,27 +691,27 @@ const A={
   ['latch','drill','pull'].forEach(k=>{const ms=pmmss(v[k]);if(ms!=null&&Math.abs(ms-st[k])>=1000)r.ov[k]=ms});
   if(d.runs[d.runs.length-1]===r)d.curDepth=r.to;save();render()},
  async startAct(el){buzz();const type=el.dataset.v,def=ACTS[type];let d=D();if(!d)d=newDayObj();const cur=dayDepth(d);
-  const fields=def.f.map(([k,l,t,dv])=>({k,l,t,v:dv??((k==='depth'||k==='from')?cur:null)}));fields.push({k:'notes',l:'Notes',t:'text'});
+  const fields=actFields(type,null,cur);fields.push({k:'notes',l:'Notes',t:'text'});
   const ts=Date.now();
   const v=await ask(def.n,fields,{ok:'▶ Start timer',alt:'Already done – enter hours',focus:false});if(!v)return;
-  const f={};def.f.forEach(([k])=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)f[k]=v[k]});
+  const f={};actFieldKeys(type,null).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)f[k]=v[k]});
   const a={id:uid(),type,f,notes:v.notes||'',s:ts,e:null};
   if(v._alt){const hv=await ask(def.n+' – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;a.hrs=hv.h;a.e=ts}
   else if(S.run&&pauseRun(ts)){a.resumeRun=true;toast('Run paused')}
   d.acts.push(a);save();render()},
  async stopAct(el){buzz();const ts=Date.now();const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;const a=found.a,def=ACTS[a.type];
-  const fields=def.f.map(([k,l,t])=>({k,l,t,v:a.f?.[k]}));fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
+  const fields=actFields(a.type,a.f);fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
   const v=await ask('Stop '+def.n+' · '+fdur(ts-a.s),fields,{ok:'⏹ Stop & save',focus:false});if(!v)return;
-  a.f=a.f||{};def.f.forEach(([k])=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';a.e=ts;
+  a.f=a.f||{};actFieldKeys(a.type,a.f).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';a.e=ts;
   if(a.resumeRun&&S.run&&curSeg().t==='pause'){resumeRun(ts);toast('Run resumed')}
   save();render()},
  async editAct(el){const d=S.days[el.dataset.d],a=d&&d.acts.find(x=>x.id===el.dataset.v);if(!a)return;const def=ACTS[a.type];
-  const fields=def.f.map(([k,l,t])=>({k,l,t,v:a.f?.[k]}));fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
+  const fields=actFields(a.type,a.f);fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
   if(a.e||a.hrs!=null)fields.push({k:'hrs',l:'Hours',t:'num',v:r2(actH(a))});
   fields.push({k:'type',l:'Type',t:'select',v:a.type,o:Object.entries(ACTS).map(([k,x])=>[k,x.n])},{k:'del',l:'Delete this entry',t:'check'});
-  const v=await ask('Edit '+def.n,fields,{focus:false});if(!v)return;
+  const v=await ask('Edit '+(def?.n||a.type),fields,{focus:false});if(!v)return;
   if(v.del){if(await confirmBox('Delete this entry?')){d.acts=d.acts.filter(x=>x!==a);save()}render();return}
-  a.f=a.f||{};def.f.forEach(([k])=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';a.type=v.type||a.type;
+  a.f=a.f||{};actFieldKeys(a.type,a.f).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';a.type=v.type||a.type;
   if(v.hrs!=null&&Math.abs(v.hrs-r2(actH(a)))>0.004)a.hrs=v.hrs;save();render()},
  async bitChange(el){const kind=el.dataset.v;let d=D();if(!d)d=newDayObj();const cb=curBit(kind);
   const v=await ask(kind==='shell'?'Shell change':'Bit change',[{k:'depth',l:'Depth (m)',t:'num',v:dayDepth(d)},{k:'off',l:'Serial coming OFF (blank if none)',t:'text',v:cb?.serial||''},{k:'type',l:'New '+kind+' type / series',t:'text',v:cb?.type||(kind==='bit'?'Hayden 11':'')},{k:'serial',l:'New serial #',t:'text'}],{focus:false});
@@ -743,7 +758,7 @@ function onBound(el,isChange){
  if(el.dataset.b!=null){const d=D();if(!d)return;setPath(d,el.dataset.b,elVal(el));
   if(el.dataset.b==='startDepth'&&!(d.runs||[]).length)d.curDepth=null;
   save();updDerived()}
- else if(el.dataset.sb!=null){let v=elVal(el);if(el.dataset.sb==='round')v=+v;setPath(S.settings,el.dataset.sb,v);save();if(el.dataset.sb==='wake')wake();if(isChange&&(el.tagName==='SELECT'||el.dataset.sb==='hitchStart'))render()}
+ else if(el.dataset.sb!=null){let v=elVal(el);if(el.dataset.sb==='round')v=+v;setPath(S.settings,el.dataset.sb,v);if(el.dataset.sb==='hitchShift')S.settings.shift=v;if(el.dataset.sb==='shift')S.settings.hitchShift=v;save();if(el.dataset.sb==='wake')wake();if(isChange&&(el.tagName==='SELECT'||el.dataset.sb==='hitchStart'))render()}
 }
 document.addEventListener('input',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,false)});
 document.addEventListener('change',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,true)});
@@ -752,8 +767,8 @@ function updDerived(){const d=D();if(!d)return;const c=d.cross||{},set=(id,t)=>{
 $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;const text=await file.text();let data;try{data=JSON.parse(text)}catch(err){toast('Not a valid backup file');return}
  if(!data||!data.days){toast('Not a Drill Tracker backup');return}
  const v=await ask('Import backup',[{k:'mode',l:'How?',t:'select',v:'merge',o:[['merge','Merge (keep mine, add / overwrite matching days)'],['replace','Replace everything on this phone']]}],{ok:'Import',msg:`${Object.keys(data.days).length} shifts in file.`,focus:false});
- if(!v)return;if(v.mode==='replace'){if(!await confirmBox('Replace ALL data on this phone?','Replace'))return;S=data}else{Object.assign(S.days,data.days)}
- save();load();render();toast('Imported ✔')});
+ if(!v)return;if(v.mode==='replace'){if(!await confirmBox('Replace ALL data on this phone?','Replace'))return;S=data}else{Object.assign(S.days,data.days);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur}
+ save();load();save();render();toast('Imported ✔')});
 setInterval(()=>{if(!$('#modal').hidden)return;const act=document.activeElement;const typing=act&&/INPUT|TEXTAREA|SELECT/.test(act.tagName);
  if((tab==='timer'||tab==='log')&&(S.run||runningActs().length)&&!typing)render();else renderHeader()},1000);
 let wl=null;async function wake(){try{if(S.settings.wake&&'wakeLock' in navigator&&document.visibilityState==='visible'){wl=await navigator.wakeLock.request('screen')}else if(!S.settings.wake&&wl){await wl.release();wl=null}}catch(e){}}
@@ -761,7 +776,11 @@ document.addEventListener('visibilitychange',()=>{if(document.visibilityState===
 window.addEventListener('storage',e=>{if(e.key===KEY&&$('#modal').hidden){load();render()}});
 
 /* ===== PWA: manifest.webmanifest + relative service worker for Android Chrome install / offline ===== */
-if('serviceWorker' in navigator&&/^https?:/.test(location.protocol))navigator.serviceWorker.register('./sw.js').catch(()=>{});
+if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
+ let refreshing=false;
+ navigator.serviceWorker.addEventListener('controllerchange',()=>{if(refreshing)return;refreshing=true;location.reload()});
+ navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
 
 load();render();wake();
 window.App={S:()=>S,A,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,runStats,mineCalc,crossCalc,render,setTab:t=>{tab=t;viewDay=null;render()}};
