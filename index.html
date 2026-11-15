@@ -91,17 +91,18 @@ table{border-collapse:collapse;width:100%}
 .hitchbar{display:flex;align-items:center;gap:8px;background:#1b1530;border:2px solid var(--pur);border-radius:12px;padding:8px 10px;margin:0 0 12px;font-weight:800;font-size:17px}
 .hitchbar.day{background:#2b220a;border-color:var(--amb)}.hitchbar.off{background:#0f2a1a;border-color:var(--grn)}
 .hitchbar .x{flex:1}.hitchbar .btn{width:auto;min-width:58px;margin:0}
-.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:12px}
-.cal .hd{font-size:12px;color:var(--mut);text-align:center}
-.cal button{min-height:58px;border-radius:8px;border:2px solid var(--line);background:var(--card2);color:var(--mut);font-size:15px;font-weight:800;padding:2px;line-height:1.1}
-.cal button small{display:block;font-size:11px;font-weight:700}
+.cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:2px;margin-bottom:4px}
+.calcard{padding:8px 3px;margin:0 -8px 12px} /* 360 px phone: 7 cells ≈ 48 px each */.calcard h3{margin:2px 6px 6px}
+.cal .hd{font-size:12px;color:var(--mut);text-align:center;font-weight:700}
+.cal button{min-height:58px;min-width:0;width:100%;border-radius:7px;border:2px solid var(--line);background:var(--card2);color:var(--mut);font-size:15px;font-weight:800;padding:1px 0;line-height:1.1;white-space:nowrap;overflow:visible}
+.cal button small{display:block;font-size:11px;font-weight:700;letter-spacing:-.02em}
 .cal .wn{background:#2a1f4a;color:#e3d4ff;border-color:#5b44a0}.cal .wd{background:#4a3708;color:#ffe08a;border-color:#a57c10}.cal .of{background:#0f2a1a;color:#8fe3b0;border-color:#1f5a36}
 .cal .ov{border-style:dashed;border-color:#fff}.cal .td{outline:3px solid var(--red);outline-offset:-1px}
 .legend span{display:inline-block;padding:2px 8px;border-radius:8px;margin:0 6px 6px 0;font-size:13px}
 .pick{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}.pick .chip.on{background:var(--amb);color:#111;border-color:var(--amb)}
 .pm{display:flex;align-items:center;gap:8px;margin:0 0 10px}.pm .btn{width:72px;min-height:64px;font-size:28px;margin:0}.pm .v{flex:1;text-align:center;font-size:34px;font-weight:900}
 .rcres{font-size:44px;font-weight:900;text-align:center;border-radius:12px;padding:8px;margin:0 0 10px}
-.rcres.ok{background:#0f3d24;color:var(--grn)}.rcres.bad{background:#4a1010;color:#ff8a8a}
+input.bad{border-color:var(--red,#e33)!important;outline:2px solid #e33}.rcres.ok{background:#0f3d24;color:var(--grn)}.rcres.bad{background:#4a1010;color:#ff8a8a}
 .bfrow{border:2px solid var(--line);border-radius:12px;padding:10px;margin:0 0 12px}
 .bfrow .err{color:var(--red);font-weight:700;font-size:14px}
 .pill.bf{color:var(--blu)}.pill.red{color:var(--red)}
@@ -148,14 +149,15 @@ const parseD=s=>{const[y,m,d]=String(s).split('-').map(Number);return new Date(y
 const addDays=(s,n)=>{const d=parseD(s);d.setDate(d.getDate()+n);return todayStr(d)};
 const diffDays=(a,b)=>Math.round((parseD(a)-parseD(b))/864e5);
 const MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'],WD2=['Su','Mo','Tu','We','Th','Fr','Sa'];
 const nice=s=>{if(!s)return'';const d=parseD(s);return `${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`};
 const hm=ts=>{const d=new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}`};
 const H=ms=>ms/3.6e6;
 const plural=(n,w,pl)=>`${n} ${n===1||n==='1'?w:(pl||w+'s')}`;
 
 /* ===== Constants ===== */
-const BUCKETS=['Casing','Coring','Directional','Reaming Rods','Reaming Casing','Reaming','Rod Pull','Testing','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
+const BUCKETS=['Casing','Coring','Directional','Reaming Rods','Reaming Casing','Reaming','Rod Pull','Testing','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby','Waiting for water'];
+const OPT_ROWS=['Waiting for water']; // v6.1: shown on the report only when it has hours, so older reports stay exactly the same
 const FT_ROWS=['Casing','Coring','Reaming Rods','Reaming Casing','Reaming','Rod Pull','Testing'];
 const HR_ROWS=['Directional','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
 const FROMTO=[['from','From (m)','num'],['to','To (m)','num']];
@@ -165,6 +167,7 @@ const ACTS={
  rodsetup:{n:'Setting up for rod pull',ic:'🧰',b:'Rod Pull',f:[['depth','Depth (m)','num']]},
  mech:{n:'Mechanical / repair',ic:'🔧',b:'Repair Maintenance',f:[['desc','What was fixed / serviced','text']]},
  breakdown:{n:'Breakdown / repair',ic:'💥',b:'Repair Maintenance',f:[['desc','What broke','text']]},
+ water:{n:'Waiting for water',ic:'⏳',b:'Waiting for water',f:[]},
  test:{n:'Test / survey',ic:'🧭',b:'Testing',f:[['depth','Test depth (m)','num'],['tool','Tool','text','Omni']]},
  wash:{n:'Washing hole',ic:'💧',b:'Hole Stabilizing',f:[['depth','Depth (m)','num'],['eos','At end of shift (E.O.S.)','check']]},
  standby:{n:'Standby',ic:'⏸️',b:'Standby',f:[['desc','Reason','text']]},
@@ -191,6 +194,23 @@ const DEF={driller:'Leo',company:'Full Force Drilling',shift:'Night',size:'NQ',r
 let S;
 let loadError=null;
 const PRE6_KEY='ffdt.pre6',PRE6_META='ffdt.pre6.meta',PRE6_CUR='ffdt.pre6.cur';
+const SAFE0='ffdt.safe0',SAFE0_META='ffdt.safe0.meta',SAFE0_CUR='ffdt.safe0.cur';
+const FIX_KEY='ffdt.fixundo'; // v6.1 QA62-7: the one "Undo fix" – its own key, never inside ffdt.v1, dropped first when storage is full
+const IMP_CUR='ffdt.imp.cur'; // v6.1 QA-R5: your data from just before the last import (+ '.meta')
+const badHrs=h=>h!=null&&(!(h>=0)||h>24),HRS_MSG='Hours must be 0–24'; // v6.1: one check for every typed hours box
+const isQuota=e=>!!e&&(e.name==='QuotaExceededError'||e.name==='NS_ERROR_DOM_QUOTA_REACHED'||e.code===22||e.code===1014||/quota/i.test(String(e.message||'')));
+let storeWarn=null; // v6.1: storage-full warning stays on screen (banner) until dismissed
+const STORE_FULL='⚠ Phone storage is full – a safety copy could not be saved. Your shifts are still saved. Export a backup now (Settings → Export backup).';
+// Write a safety copy (+ meta). On failure: remove the half-written copy, warn clearly, return false. Never touches ffdt.v1.
+function storeSafe(key,val,metaKey,meta){try{localStorage.setItem(key,val);if(metaKey)localStorage.setItem(metaKey,JSON.stringify(meta))}catch(e){try{localStorage.removeItem(key);if(metaKey)localStorage.removeItem(metaKey)}catch(x){}const msg=isQuota(e)?STORE_FULL:'⚠ Could not save a safety copy ('+(e&&e.message||'error')+'). Export a backup now.';storeWarn=msg;try{toast(msg,true)}catch(x){}return false}return true}
+// v6.1: one shared "oldest safe copy" – the raw phone data from before the FIRST destructive action of any kind. Written only if absent; never overwritten.
+// Returns true when the copy exists or there is nothing readable to keep; false only when a needed copy could not be written.
+// QA11: only readable Drill Tracker data goes in – unreadable data is never stored here (it stays in ffdt.v1 / ffdt.v1.bak).
+function safe0Valid(raw){try{const o=JSON.parse(raw);return !!o&&typeof o==='object'&&!!o.days&&typeof o.days==='object'&&!Array.isArray(o.days)}catch(e){return false}}
+function takeSafe0(reason){try{if(localStorage.getItem(SAFE0)!=null)return true}catch(e){return false}
+ let raw=null;try{raw=localStorage.getItem(KEY)}catch(e){}if(raw==null){if(!S||S._corrupt)return true;raw=JSON.stringify(S)}
+ if(!safe0Valid(raw))return true;
+ let n=null;try{n=dataCounts(JSON.parse(raw)).days}catch(e){}return storeSafe(SAFE0,raw,SAFE0_META,{savedAt:Date.now(),days:n,reason:reason||''})}
 function allDays(){return Object.values((S&&S.days)||{}).filter(d=>d&&typeof d==='object')}
 function load(){
  loadError=null;
@@ -200,7 +220,7 @@ function load(){
  try{parsed=raw?JSON.parse(raw):null}catch(e){parseFail=true;parsed=null}
  const unusable=!!raw&&(parseFail||!parsed||typeof parsed!=='object'||!parsed.days||typeof parsed.days!=='object');
  if(unusable){
-  try{localStorage.setItem('ffdt.v1.bak',raw)}catch(e){}
+  try{localStorage.setItem('ffdt.v1.bak',raw)}catch(e){storeWarn=STORE_FULL}
   loadError="Saved data couldn't be read, restore a backup";
   S={v:6,days:{},cur:null,run:null,_corrupt:true};
   S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),{map:Object.assign({},DEFMAP)});
@@ -211,7 +231,7 @@ function load(){
   if(!S||typeof S!=='object'||!S.days)S={v:1,days:{},cur:null,run:null};
   const verIn=S.v||1;
   // v6 (scope update): keep the raw pre-migration data once, before the v5→v6 step changes anything
-  if(verIn<6&&raw){try{if(localStorage.getItem(PRE6_KEY)==null){localStorage.setItem(PRE6_KEY,raw);localStorage.setItem(PRE6_META,JSON.stringify({savedAt:Date.now(),fromV:verIn,days:Object.keys(S.days||{}).length}))}}catch(e){}}
+  if(verIn<6&&raw){let has=true;try{has=localStorage.getItem(PRE6_KEY)!=null}catch(e){}if(!has)storeSafe(PRE6_KEY,raw,PRE6_META,{savedAt:Date.now(),fromV:verIn,days:Object.keys(S.days||{}).length})}
   const prevSet=S.settings||{};
   S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),prevSet);
   S.settings.map=Object.assign({},DEFMAP,S.settings.map||{});
@@ -237,6 +257,9 @@ function load(){
     if(typeof d.helper2!=='string')d.helper2='';
     if(!Array.isArray(d.rodCounts))d.rodCounts=[];
     if(typeof d.backfilled!=='boolean')d.backfilled=false;
+    // Rollback note (QA r2 nit 3): v6 itself ignores bfV, so a bfV:2 day opened in old v6 adds its dir hours ON TOP of the typed Total hours
+    // (v6 math). Nothing is lost – going forward again to v6.1 restores the bfV:2 meaning. No behaviour change here.
+    if(d.backfilled&&d.bfV==null)d.bfV=1; // v6.1 QA-R1: days quick-added by v6 keep v6 hours math (bfHours + dir on top); only bfV:2 days count dir inside Total hours
     if(!('endedAt' in d))d.endedAt=null;
     if(!('bfHours' in d))d.bfHours=null;
     // v6 scope update: drill info + bit id (also applied to v6 data saved before these fields existed)
@@ -250,6 +273,10 @@ function load(){
   if(!S.crossDays||typeof S.crossDays!=='object'||Array.isArray(S.crossDays))S.crossDays={};
   Object.values(S.crossDays).forEach(d=>{if(d&&typeof d==='object'){migrateDay(d);d.crossShift=true}});
   try{if(S.run&&typeof S.run==='object'){if(S.run.dir==null)S.run.dir=false;ensurePauses(S.run);if(!('bitId' in S.run))S.run.bitId=null}}catch(e){}
+  // v6.1 QA4: pause-holder sets. Data from v6 has only a.resumeRun / a.resumeActs – turn those into the sets (no data changes otherwise)
+  try{const live=runningActs().map(x=>x.a);
+   if(S.run&&typeof S.run==='object'&&!Array.isArray(S.run.holds)){const sg=Array.isArray(S.run.segs)&&S.run.segs[S.run.segs.length-1];S.run.holds=sg&&sg.t==='pause'&&sg.e==null?live.filter(a=>a.resumeRun).map(a=>a.id):[]}
+   live.forEach(x=>{if(!Array.isArray(x.pausedBy)&&isActPaused(x)){const by=live.filter(a=>a!==x&&(a.resumeActs||[]).includes(x.id)).map(a=>a.id);if(by.length)x.pausedBy=by}})}catch(e){}
   if((S.v||1)<2)S.v=2;
   if(!('hitchShift' in prevSet)||!S.settings.hitchShift)S.settings.hitchShift=S.settings.shift||'Night';
   if((S.v||1)<3)S.v=3;
@@ -265,15 +292,45 @@ function load(){
   if(!st.bitLifeDismissed||typeof st.bitLifeDismissed!=='object'||Array.isArray(st.bitLifeDismissed))st.bitLifeDismissed={};
   if(typeof st.drillType!=='string')st.drillType='A5';if(st.drillNumber==null)st.drillNumber='';
   if((S.v||1)<6)S.v=6;
-  if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
+  if('fixUndo' in S)delete S.fixUndo; // v6.1 QA62-7: the fix undo lives in ffdt.fixundo now; an r2 test build kept it here – dropped (in memory only, never rewrites old data)
+
+  if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){storeWarn='⚠ Phone storage is full – the upgraded data is not saved yet (your old data is untouched). Export a backup now (Settings → Export backup).'}}
  }catch(e){
-  try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){}
+  try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){storeWarn=STORE_FULL}
   loadError="Saved data couldn't be read, restore a backup";
   if(!S||typeof S!=='object'){S={v:6,days:{},cur:null,run:null,_corrupt:true};S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),{map:Object.assign({},DEFMAP)})}
   else S._corrupt=true;
  }
 }
-function save(){if(S&&S._corrupt){if(loadError)toast(loadError);return}try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){toast('⚠ Could not save: '+e.message)}}
+// v6.1: if storage is full, ffdt.v1 wins – safety copies are dropped (least important first) until the shifts save, and the user is told to export.
+// QA8: the two ".cur" copies hold someone's current data from before a restore, so they go after the older undo points; the oldest safe copy goes last.
+// QA2: dropped copies are kept in memory and written back if ffdt.v1 still won't fit – never a failed save AND lost copies.
+// QA-R2: which copy goes first is decided by content, not a fixed list:
+//  1) a copy whose every shift (same date + shift + driller, same content) is also in ffdt.v1 or in another kept copy – nothing unique is lost;
+//  2) otherwise the OLDEST copy (by its saved time), so newer unique work is never dropped while an older copy survives.
+// Ties keep this list order (least important first).
+const SAFETY_DROP=()=>[[FIX_KEY,FIX_KEY+'.meta'],[PRE6_KEY,PRE6_META],[BF_PREV,BF_META],[PREV_KEY,PREV_META],[PRE6_CUR,PRE6_CUR+'.meta'],[SAFE0_CUR,SAFE0_CUR+'.meta'],[IMP_CUR,IMP_CUR+'.meta'],[SAFE0,SAFE0_META]];
+function canonJ(o){if(Array.isArray(o))return '['+o.map(canonJ).join(',')+']';if(o&&typeof o==='object')return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+canonJ(o[k])).join(',')+'}';return JSON.stringify(o===undefined?null:o)}
+function shiftMap(src){try{const o=typeof src==='string'?JSON.parse(src):src;if(!o||typeof o!=='object'||!o.days||typeof o.days!=='object')return null;const m=new Map();
+ [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(d))});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);return m}catch(e){return null}}
+// QA r2 nit 1: a copy is "covered" only if its shifts AND its settings AND its live run are also in ffdt.v1 or another kept copy
+function shiftsCovered(m,others){if(!m)return false;for(const[k,set]of m)for(const c of set)if(!others.some(o=>o&&o.has(k)&&o.get(k).has(c)))return false;
+ if(!others.some(o=>o&&o.set_===m.set_))return false;if(m.run_!=='null'&&!others.some(o=>o&&o.run_===m.run_))return false;return true}
+function metaAt(k){try{const m=JSON.parse(localStorage.getItem(k)||'null');return m&&+m.savedAt||0}catch(e){return 0}}
+function pickDrop(kept,v1m){const fx=kept.find(c=>c.ks[0]===FIX_KEY);if(fx)return fx; // QA62-7: the fix undo is the least important – always first
+ for(const c of kept){if(shiftsCovered(c.map,[v1m,...kept.filter(x=>x!==c).map(x=>x.map)]))return c}
+ return kept.slice().sort((a,b)=>a.at-b.at||a.pri-b.pri)[0]}
+function save(){if(S&&S._corrupt){if(loadError)toast(loadError);return false}const txt=JSON.stringify(S);
+ try{localStorage.setItem(KEY,txt);return true}catch(e){
+  if(!isQuota(e)){toast('⚠ Could not save: '+e.message);return false}
+  const held=[];let ok=false;const v1m=shiftMap(txt);
+  const kept=SAFETY_DROP().map((ks,pri)=>{const vals=ks.map(k=>{try{return localStorage.getItem(k)}catch(x){return null}});return{ks,vals,pri,at:metaAt(ks[1]),map:vals[0]!=null?shiftMap(vals[0]):null}}).filter(c=>c.vals[0]!=null);
+  while(kept.length){const c=pickDrop(kept,v1m);kept.splice(kept.indexOf(c),1);
+   c.ks.forEach(k=>{try{localStorage.removeItem(k)}catch(x){}});held.push(c);
+   try{localStorage.setItem(KEY,txt);ok=true;break}catch(x){}}
+  if(ok){storeWarn=`⚠ Phone storage was full. ${plural(held.length,'old safety copy','old safety copies')} removed so your shifts stay saved. Export a backup now (Settings → Export backup).`;toast(storeWarn,true);setTimeout(()=>{try{render()}catch(x){}},0);return true}
+  let lost=0;held.reverse().forEach(({ks,vals})=>ks.forEach((k,i)=>{if(vals[i]==null)return;try{localStorage.setItem(k,vals[i])}catch(x){lost++}}));
+  storeWarn='⚠ Phone storage is full – could not save! '+(lost?'':'Your safety copies were kept. ')+'Export a backup now (Settings → Export backup).';toast(storeWarn,true);setTimeout(()=>{try{render()}catch(x){}},0);return false}}
 const D=()=>{const d=S.cur&&S.days?S.days[S.cur]:null;return (d&&typeof d==='object')?d:null};
 const sortedDays=()=>allDays().sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.created||0)-(a.created||0));
 const lastDay=()=>sortedDays()[0]||null;
@@ -355,7 +412,7 @@ function dayCalc(d){
  B.Coring.m=mc.drill;B.Directional.h=d.dirUseTimed?H(mc.dirRunMs):mc.dir;
  (d.acts||[]).forEach(a=>{const o=get(map[a.type]||ACTS[a.type]?.b||'Standby');o.h+=actH(a);o.n++;const f=a.f||{};
   if(f.from!=null||f.to!=null){mm(o,f.from,f.to);if(f.from!=null&&f.to!=null)o.m+=Math.abs(f.to-f.from)}});
- if(d.bfHours!=null&&+d.bfHours>0)B.Coring.h+=+d.bfHours; // v6: quick-add (back-filled) shift hours
+ if(d.bfHours!=null&&+d.bfHours>0)B.Coring.h+=Math.max(0,+d.bfHours-(d.bfV===2?(+d.dir||0):0)); // v6: quick-add shift hours; v6.1: the typed total already includes any directional hours
  B.Travel.h+=d.travel||0;
  get(map.preop||'Repair Maintenance').h+=d.preop||0;
  let total=0;Object.values(B).forEach(o=>total+=o.h);
@@ -392,6 +449,7 @@ function buildComments(d){
    case'rodin':s=`-Lowered rods back in${f.depth!=null?' @ '+dd(f.depth)+'m':''} ${h}`;break;
    case'rodsetup':s=`-Set up for rod pull${f.depth!=null?' @ '+dd(f.depth)+'m':''} ${h}`;break;
    case'breakdown':s=`-Breakdown: ${ds||'repair'} ${h}`;break;
+   case'water':s=`-Waiting for water${ds?' - '+ds:''} ${h}`;break;
    case'mech':s=`-${ds||'Repair / maintenance'} ${h}`;break;
    case'standby':s=`-Standby${ds?' - '+ds:''} ${h}`;break;
    case'foreman':s=`-Foreman on site${ds?', talked about '+ds:''} ${h}`;break;
@@ -508,7 +566,8 @@ function ask(title,fields=[],opt={}){
   form.onsubmit=e=>{e.preventDefault();done(collect())};
   $('#mcancel').onclick=()=>done(null);
   if(opt.alt)$('#malt').onclick=()=>{const o=collect();o._alt=true;done(o)};
-  const first=form.querySelector('input:not([type=checkbox]),textarea');if(opt.focusCancel)setTimeout(()=>{try{$('#mcancel').focus()}catch(e){}},50);else if(first&&opt.focus!==false)setTimeout(()=>{try{first.focus()}catch(e){}},50);
+  const first=form.querySelector('input:not([type=checkbox]),textarea');if(opt.focusCancel){try{$('#mcancel').focus()}catch(e){}setTimeout(()=>{try{$('#mcancel').focus()}catch(e){}},50)} // focus Cancel at once (a stray Enter can't confirm) and again after the sheet settles
+  else if(first&&opt.focus!==false)setTimeout(()=>{try{first.focus()}catch(e){}},50);
  });
 }
 const confirmBox=(msg,ok='Yes, delete')=>ask(msg,[],{ok,danger:true}).then(v=>!!v);
@@ -530,7 +589,7 @@ function render(){
  if(!$('#modal').hidden)return;
  $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
  const V={shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
- $('#main').innerHTML=(loadError?corruptBanner():'')+drivePendingBanner()+V();
+ $('#main').innerHTML=(loadError?corruptBanner():'')+(storeWarn?`<div class="warn" id="storeWarn"><b>${esc(storeWarn)}</b><div class="row" style="margin-top:8px"><button class="btn" data-a="exportJSON">⬇ Export backup</button><button class="btn ghost" data-a="storeWarnOk" id="storeWarnOk">✔ Got it</button></div></div>`:'')+drivePendingBanner()+V();
  renderHeader();
 }
 function renderHeader(){
@@ -564,10 +623,10 @@ const rcVerdict=rc=>rc.depth==null?'':Math.abs(rc.diff)<0.05?'MATCH':(rc.diff>0?
 function rcCalc(o){const rods=Math.max(0,(+o.stands||0)*(+o.per||2)+(+o.singles||0)),rodLen=+o.rodLen||3,barrelLen=o.barrel?(+o.barrelLen||0):0,length=r2(rods*rodLen+barrelLen),depth=o.depth==null||o.depth===''||isNaN(+o.depth)?null:+o.depth;
  return{rods,length,depth,diff:depth==null?null:r2(length-depth)}}
 function wrapData(d){const c=dayCalc(d),mc=c.mine,B=c.B,sx=stats([d]);let other=0;Object.entries(B).forEach(([k,o])=>{if(k!=='Coring'&&k!=='Directional'&&k!=='Travel')other+=o.h});
- const bd=(d.acts||[]).filter(a=>a.type==='breakdown');
+ const bd=(d.acts||[]).filter(a=>a.type==='breakdown'),wt=(d.acts||[]).filter(a=>a.type==='water');
  return{counted:mc.counted,drill:mc.drill,cred:mc.cred,runs:(d.runs||[]).length,blocks:(d.runs||[]).reduce((t,r)=>t+runStats(r).blocks,0),from:d.startDepth,to:dayDepth(d),
   drillH:B.Coring.h+B.Directional.h,otherH:other,travelH:B.Travel.h,total:c.total,bdN:bd.length,bdH:bd.reduce((t,a)=>t+actH(a),0),bdList:bd.map(a=>(a.f&&a.f.desc)||'repair'),
-  cats:Object.entries(B).filter(([k,o])=>o.h>0).map(([k,o])=>[k,o.h]),crew:{driller:d.driller||'',helpers:crewStr(d)},avg:sx.avg,noFtAsk:mc.noFtAsk}}
+  cats:Object.entries(B).filter(([k,o])=>o.h>0).map(([k,o])=>[k,o.h]),crew:{driller:d.driller||'',helpers:crewStr(d)},avg:sx.avg,noFtAsk:mc.noFtAsk,waterN:wt.length,waterH:wt.reduce((t,a)=>t+actH(a),0)}}
 function wrapHtml(d){const w=wrapData(d);
  return `<div id="wrap"><div class="kv"><span>Counted metres</span><b class="grn" id="wrapM">${fm(w.counted)} m</b></div>
  <div class="kv"><span>Drilled · dir credit</span><b>${fm(w.drill)} m · ${fm(w.cred)} m</b></div>
@@ -575,6 +634,7 @@ function wrapHtml(d){const w=wrapData(d);
  <div class="kv"><span>Depth</span><b id="wrapDepth">${fm(w.from)||'?'} → ${fm(w.to)||'?'} m</b></div>
  <div class="kv"><span>Hours drilling · other · travel</span><b id="wrapHrs">${th(w.drillH)||0} · ${th(w.otherH)||0} · ${th(w.travelH)||0}</b></div>
  <div class="kv"><span>Breakdowns</span><b id="wrapBd">${w.bdN?`${w.bdN} · ${th(w.bdH)||0} h`:'none'}</b></div>${w.bdN?`<p class="sm">${esc(w.bdList.join(', '))}</p>`:''}
+ ${w.waterN?`<div class="kv"><span>Waiting for water</span><b id="wrapWater">${w.waterN} · ${th(w.waterH)||0} h</b></div>`:''}
  <div class="kv"><span>Crew</span><b id="wrapCrew">${esc(w.crew.driller)}${w.crew.helpers?' / '+esc(w.crew.helpers):''}</b></div>
  <h3 style="color:var(--blu)">Pay hours</h3>${w.cats.map(([k,h])=>`<div class="kv"><span>${esc(k)}</span><b>${th(h)}</b></div>`).join('')}
  <div class="kv"><span><b>TOTAL HOURS</b></span><b class="amb" id="wrapTotal">${th(w.total)||0}</b></div>
@@ -675,10 +735,12 @@ function vTimer(){
     ${s.t!=='pause'&&s.e==null?`<button class="btn ghost glove" data-a="pause">⏸ Pause</button>`:''}
    </div>
    ${hasLiveBreakdown()?'':`<button class="btn red glove" data-a="breakdown">💥 BREAKDOWN</button>`}
+   ${runPhase(r,Date.now())?`<button class="btn blu glove" data-a="fixRun" id="fixRunBtn">✎ Fix: it really ended after…</button>`:''}
    <div class="row"><button class="btn ghost glove" data-a="editRun">✎ Depths</button><button class="btn ghost glove" data-a="endEarly">⏹ End run here</button><button class="btn ghost glove" data-a="cancelRun">✖ Cancel</button></div>
   </div>`;
  }
  h+=runningActsCard();
+ h+=waterCard();
  h+=bitAlertHtml(d);
  h+=paceCard(d);
  const runs=(d.runs||[]);
@@ -690,20 +752,24 @@ function vTimer(){
   ${runs.slice().reverse().map((r,i)=>runLi(r,runs.length-i,d)).join('')}</div>`}
  return h;
 }
-function runLi(r,n,d,ro){const st=runStats(r);return `<div class="li"><div class="x"><b>#${n} ${fm(r.from)} → ${fm(r.to)} m <span class="amb">${fdur(st.total)}</span>${st.blocks?` <span class="pill red">⛔${st.blocks}</span>`:''}${r.dir?' <span class="pill" style="color:var(--pur)">DIR</span>':''}</b><span class="mut sm">${hm(r.segs[0].s)} · L ${fdur(st.latch)} · D ${fdur(st.drill)} · P ${fdur(st.pull)}${st.pause?' · paused '+fdur(st.pause):''}${trimNote(r.notes)?' · “'+esc(r.notes)+'”':''}${(r.pieces||[]).filter(p=>p.blocked&&trimNote(p.note)).map(p=>' · ⛔ '+fm(p.to)+'m “'+esc(p.note)+'”').join('')}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editDoneRun" data-v="${r.id}" data-d="${d.id}">✎</button>`}</div>`}
+function runLi(r,n,d,ro){const st=runStats(r);return `<div class="li"><div class="x"><b>#${n} ${fm(r.from)} → ${fm(r.to)} m <span class="amb">${fdur(st.total)}</span>${st.blocks?` <span class="pill red">⛔${st.blocks}</span>`:''}${r.dir?' <span class="pill" style="color:var(--pur)">DIR</span>':''}${r.noDepth&&r.from==null?' <span class="pill red">no depth – tap ✎</span>':''}</b><span class="mut sm">${hm(r.segs[0].s)} · L ${fdur(st.latch)} · D ${fdur(st.drill)} · P ${fdur(st.pull)}${st.pause?' · paused '+fdur(st.pause):''}${trimNote(r.notes)?' · “'+esc(r.notes)+'”':''}${(r.pieces||[]).filter(p=>p.blocked&&trimNote(p.note)).map(p=>' · ⛔ '+fm(p.to)+'m “'+esc(p.note)+'”').join('')}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editDoneRun" data-v="${r.id}" data-d="${d.id}">✎</button>`}</div>`}
+const waterLive=()=>runningActs().some(({a})=>a.type==='water');
+// v6.1: its own card under the run controls (never next to start / stop / pause)
+function waterCard(){return waterLive()?'':`<div class="card" id="waterCard"><button class="btn blu glove" data-a="water" id="waterBtn" style="margin:0">⏳ WAITING FOR WATER</button><p class="mut sm" style="margin:6px 0 0">Times the wait for the water tanks. A running core run is paused and resumes when you stop.</p></div>`}
 function runningActsCard(){
  const ra=runningActs();if(!ra.length)return'';
  return ra.map(({a})=>{
   const paused=isActPaused(a),pms=pausedMs(a.pauses);
-  return `<div class="card run-live${paused?' run-paused':''}"><div class="phase ${paused?'ph-pause':'ph-pull'}">${paused?'⏸ PAUSED · ':''}${ACTS[a.type]?.ic||''} ${esc(ACTS[a.type]?.n||a.type).toUpperCase()}</div><div class="big">${fdur(actElapsedMs(a))}</div><div class="c mut sm">${paused?'elapsed (pauses not counted) · ':''}started ${hm(a.s)} ${actDesc(a)}</div>${pms?`<div class="c mut sm${paused?' red':''}">${paused?'⏸ PAUSED · ':''}Paused time (not counted): ${fdur(pms)}</div>`:''}<div class="row">${paused?`<button class="btn huge grn" data-a="resumeAct" data-v="${a.id}">▶ RESUME</button>`:`<button class="btn huge ghost" data-a="pauseAct" data-v="${a.id}">⏸ PAUSE</button>`}</div>${a.type!=='breakdown'&&!hasLiveBreakdown()?`<button class="btn red glove" data-a="breakdown" data-v="${a.id}">💥 BREAKDOWN</button>`:''}<button class="btn huge red" data-a="stopAct" data-v="${a.id}">⏹ STOP</button></div>`}).join('');
+  return `<div class="card run-live${paused?' run-paused':''}"><div class="phase ${paused?'ph-pause':'ph-pull'}">${paused?'⏸ PAUSED · ':''}${ACTS[a.type]?.ic||''} ${esc(ACTS[a.type]?.n||a.type).toUpperCase()}</div><div class="big">${fdur(actElapsedMs(a))}</div><div class="c mut sm">${paused?'elapsed (pauses not counted) · ':''}started ${hm(a.s)} ${actDesc(a)}</div>${pms?`<div class="c mut sm${paused?' red':''}">${paused?'⏸ PAUSED · ':''}Paused time (not counted): ${fdur(pms)}</div>`:''}<div class="row">${paused&&a.pausedBy&&a.pausedBy.length&&holdNames(a.pausedBy)?`<div class="c sm red" id="heldBy_${a.id}">Paused while ${esc(holdNames(a.pausedBy))} is running</div>`:paused?`<button class="btn huge grn" data-a="resumeAct" data-v="${a.id}">▶ RESUME</button>`:`<button class="btn huge ghost" data-a="pauseAct" data-v="${a.id}">⏸ PAUSE</button>`}</div>${a.type!=='breakdown'&&!hasLiveBreakdown()?`<button class="btn red glove" data-a="breakdown" data-v="${a.id}">💥 BREAKDOWN</button>`:''}${paused&&(a.pausedBy||[]).length?'':`<button class="btn blu glove" data-a="fixAct" data-v="${a.id}" id="fixAct_${a.id}">✎ Fix: it really ended after…</button>`}<button class="btn huge red" data-a="stopAct" data-v="${a.id}">⏹ STOP</button></div>`}).join('');
 }
 function actDesc(a){const f=a.f||{},p=[];if(f.from!=null||f.to!=null)p.push(`${fm(f.from)}→${fm(f.to)} m`);if(f.depth!=null)p.push(`@ ${fm(f.depth)} m`);if(f.tool)p.push(f.tool);if(f.count)p.push(`${f.count} rods`);if(f.passes)p.push(plural(f.passes,'pass','passes'));if(f.eos)p.push('E.O.S.');if(f.desc)p.push(f.desc);if(a.notes)p.push('“'+a.notes+'”');return esc(p.join(' · '))}
 function vLog(){
  const d=D();if(!d)return needDay();
+ const fu=fixUndoCard();
  const cb=curBit('bit'),cs=curBit('shell');
  const quick=String(S.settings.quick||'').split(',').map(x=>x.trim()).filter(Boolean);
  const bn=b=>esc([b.type,b.serial?'#'+b.serial:''].filter(Boolean).join(' '));
- return hitchBar(d.date||workDate())+runningActsCard()+`
+ return hitchBar(d.date||workDate())+fu+runningActsCard()+`
  <div class="card"><h2>Start an activity</h2><div class="agrid">${Object.entries(ACTS).map(([k,v])=>`<button class="btn" data-a="startAct" data-v="${k}"><span>${v.ic}</span>${esc(v.n)}</button>`).join('')}</div>
  <p class="mut sm">Starting an activity pauses a running core run; stopping it resumes the run.</p>
  <button class="btn blu" data-a="rodCount" id="rodCountBtn">🔢 Rod count on deck</button></div>
@@ -725,7 +791,7 @@ function timeline(d,ro){
  (d.rodCounts||[]).forEach(rc=>it.push({s:rc.t||0,h:`<div class="li"><div class="x"><b>🔢 Rod count <span class="${Math.abs(rc.diff||0)<0.05?'grn':'red'}">${esc(rcVerdict(rc)||'')}</span></b><span class="mut sm">${rc.t?hm(rc.t):''} ${esc(rcText(rc))}${trimNote(rc.notes)?' · “'+esc(rc.notes)+'”':''}${rc.actId?' · with rod pull':''}</span></div></div>`}));
  it.sort((a,b)=>a.s-b.s);return it.map(x=>x.h).join('')||'<p class="mut sm">Nothing logged yet</p>';
 }
-function extraRows(B){return Object.keys(B).filter(k=>!BUCKETS.includes(k)&&B[k].h)}
+function extraRows(B){return Object.keys(B).filter(k=>(!BUCKETS.includes(k)||OPT_ROWS.includes(k))&&B[k].h)}
 function reportText(d){
  const c=dayCalc(d),B=c.B,bi=bitSummary(d,'bit'),sh=bitSummary(d,'shell'),pd=(s,n)=>String(s).padEnd(n);
  const L=[`${String(S.settings.company).toUpperCase()} – SHIFT REPORT`,`Hole No: ${d.hole||''}   Job No: ${d.job||''}`,`Date: ${d.date||''}   ${d.shift||''} shift   Size: ${d.size||''}`,`Drill: ${drillLabel(d)}`,`Driller: ${d.driller||''}${d.covered?' (covered)':''}   Helper: ${helperOut(d)}`,'',
@@ -883,6 +949,7 @@ function vSettings(){
  <button class="btn" data-a="exportJSON">⬇ Export backup (JSON)</button>
  <button class="btn ghost" data-a="importJSON">⬆ Import backup</button>
  ${driveCard()}
+ ${fixUndoCard()}
  ${undoCards()}
  <div class="row"><button class="btn ghost sm" data-a="csv" data-v="days">CSV days</button><button class="btn ghost sm" data-a="csv" data-v="runs">CSV runs</button><button class="btn ghost sm" data-a="csv" data-v="acts">CSV activities</button></div>
  <button class="btn red" data-a="wipe" style="margin-top:14px">Delete ALL data</button></div>`;
@@ -892,13 +959,26 @@ function curSeg(){return S.run.segs[S.run.segs.length-1]}
 function openSeg(t,p,ts){S.run.segs.push({t,p,s:ts,e:null})}
 function pauseRun(ts=Date.now()){if(!S.run)return false;const s=curSeg();if(s.t==='pause'||s.e!=null)return false;s.e=ts;S.run.resume=s.t;openSeg('pause',s.p,ts);return true}
 function resumeRun(ts=Date.now()){if(!S.run)return;const s=curSeg();if(s.t!=='pause'||s.e!=null)return;s.e=ts;openSeg(S.run.resume||'drill',s.p,ts)}
-function armBreakdown(a,ts=Date.now()){
- a.resumeActs=a.resumeActs||[];
- runningActs().forEach(({a:x})=>{if(x.id!==a.id&&beginActPause(x,ts))a.resumeActs.push(x.id)});
- if(S.run){const pausedByUs=pauseRun(ts);const s=curSeg();const owned=runningActs().some(({a:x})=>x.id!==a.id&&x.resumeRun&&!x.e&&x.hrs==null);
-  if((pausedByUs||(s&&s.t==='pause'))&&!owned){a.resumeRun=true;toast('Run paused')}}
-}
-function startRunAt(from,ts=Date.now()){const d=D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:(d.bitId!=null&&String(d.bitId).trim())?String(d.bitId).trim():null,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
+// v6.1 QA4/5: who is holding a pause is a SET. S.run.holds = ids of live timers holding the run paused; x.pausedBy = ids holding timer x paused.
+// The run / timer only resumes when its set is empty, so with Breakdown + Water overlapping, stopping one hands the pause to the one still running.
+// A pause the user made by hand (empty set) is never taken over or resumed by a timer.
+function holdRun(a,ts){if(!S.run)return;const s=curSeg();if(!s)return;if(!Array.isArray(S.run.holds))S.run.holds=[];
+ if(s.t!=='pause'){if(pauseRun(ts)){S.run.holds=[a.id];a.resumeRun=true;toast('Run paused')}}
+ else if(s.e==null&&S.run.holds.length&&!S.run.holds.includes(a.id)){S.run.holds.push(a.id);a.resumeRun=true}}
+function releaseRun(a,ts){if(!S.run||!a.resumeRun)return;const h=S.run.holds;
+ if(Array.isArray(h)){const i=h.indexOf(a.id);if(i<0)return;h.splice(i,1);if(h.length)return}
+ const s=curSeg();if(s&&s.t==='pause'&&s.e==null){resumeRun(ts);toast('Run resumed')}}
+function holdActs(a,ts){a.resumeActs=a.resumeActs||[];
+ runningActs().forEach(({a:x})=>{if(x.id===a.id)return;
+  if(!isActPaused(x)){if(beginActPause(x,ts)){x.pausedBy=[a.id];a.resumeActs.push(x.id)}}
+  else if(Array.isArray(x.pausedBy)&&x.pausedBy.length&&!x.pausedBy.includes(a.id))x.pausedBy.push(a.id)})}
+function releaseActs(a,ts){runningActs().forEach(({a:x})=>{if(x.id===a.id)return;
+  if(Array.isArray(x.pausedBy)){const i=x.pausedBy.indexOf(a.id);if(i<0)return;x.pausedBy.splice(i,1);if(!x.pausedBy.length)endActPause(x,ts)}
+  else if((a.resumeActs||[]).includes(x.id))endActPause(x,ts)})} // legacy (v6 data): no set stored
+function releaseAll(a,ts){releaseActs(a,ts);releaseRun(a,ts);a.pausedBy=[]}
+const holdNames=ids=>(ids||[]).map(id=>{const f=runningActs().find(x=>x.a.id===id);return f?(ACTS[f.a.type]?.n||f.a.type):null}).filter(Boolean).join(' + ');
+function armBreakdown(a,ts=Date.now()){holdActs(a,ts);holdRun(a,ts)}
+function startRunAt(from,ts=Date.now(),day){const d=day||D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:(d.bitId!=null&&String(d.bitId).trim())?String(d.bitId).trim():null,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
 function newDayObj(){
  const last=lastDay();const date=workDate();const defShift=schedType(date);const lc=Array.isArray(S.settings.lastCrew)?S.settings.lastCrew:[];
  const d={id:uid(),date,shift:defShift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:lc[0]||last?.helper||'',helper2:lc[1]||'',drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||''),bitId:last?.bitId??null,rodCounts:[],backfilled:false,endedAt:null,bfHours:null,
@@ -927,14 +1007,14 @@ const A={
  async newShift(){const d=D();
   if(S.run){toast('Finish or cancel the running run first');return}
   if(d&&((d.runs||[]).length||(d.acts||[]).length)){if(!await ask('Start a new shift?',[],{ok:'Yes, new shift',msg:'Current shift stays saved in Days.'}))return}
-  newDayObj();save();tab='shift';render();toast('New shift: travel '+S.settings.travel+' + pre-op '+S.settings.preop+' h added')},
+  newDayObj();clearFix();save();tab='shift';render();toast('New shift: travel '+S.settings.travel+' + pre-op '+S.settings.preop+' h added')},
  async editDepth(){const d=D();const v=await ask('Current depth',[{k:'d',l:'Depth (m)',t:'num',v:dayDepth(d)}]);if(!v||v.d==null)return;d.curDepth=v.d;if(!(d.runs||[]).length)d.startDepth=v.d;save();render()},
  async startRun(){buzz();let d=D();if(!d)d=newDayObj();let from=dayDepth(d);
   if(from==null){const v=await ask('Start depth',[{k:'d',l:'Depth you are starting at (m)',t:'num'}],{ok:'▶ Start'});if(!v||v.d==null)return;from=v.d;d.startDepth=from;d.curDepth=from}
   startRunAt(from,Date.now());save();render()},
  async next(){buzz();const ts=Date.now(),r=S.run;if(!r)return;const s=curSeg();
   if(s.e!=null&&!(s.t==='pull'&&r.pieces[s.p]&&r.pieces[s.p].blocked))return finishRun(s.e,!!r.endEarly); // run end already frozen: just ask for the depth
-  if(s.t==='pause')resumeRun(ts);
+  if(s.t==='pause'){const hn=r.holds&&r.holds.length?holdNames(r.holds):'';if(hn){toast(`Run is paused while ${hn} is running – stop that first`,true);return}resumeRun(ts)}
   else if(s.t==='latch'){s.e=ts;openSeg('drill',s.p,ts)}
   else if(s.t==='drill'){s.e=ts;openSeg('pull',s.p,ts)}
   else if(s.t==='pull'){const pc=r.pieces[s.p];if(pc.blocked){if(s.e==null)s.e=ts;r.pieces.push({from:pc.to,to:null,blocked:false});openSeg('latch',s.p+1,ts)}
@@ -950,11 +1030,17 @@ const A={
   let d=D();if(!d)d=newDayObj();
   const v=await ask('Breakdown / repair',[{k:'desc',l:'What broke',t:'text'},{k:'notes',l:'Notes',t:'text'}],{ok:'▶ Start timer',alt:'Already done – enter hours',focus:false});if(!v)return;
   const f={};if(v.desc)f.desc=v.desc;
-  if(v._alt){const hv=await ask('Breakdown / repair – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;const ts=Date.now();d.acts.push({id:uid(),type:'breakdown',f,notes:v.notes||'',s:ts,e:ts,hrs:hv.h,pauses:[],resumeActs:[]});save();render();return}
+  if(v._alt){const hv=await ask('Breakdown / repair – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;if(badHrs(hv.h)){toast(HRS_MSG+' – nothing saved',true);return}const ts=Date.now();d.acts.push({id:uid(),type:'breakdown',f,notes:v.notes||'',s:ts,e:ts,hrs:hv.h,pauses:[],resumeActs:[]});save();render();return}
   const ts=Date.now();
   const a={id:uid(),type:'breakdown',f,notes:v.notes||'',s:ts,e:null,pauses:[],resumeActs:[]};
   armBreakdown(a,ts);
   d.acts.push(a);save();render()},
+ async water(){buzz();if(waterLive()){toast('Already waiting for water');return}
+  let d=D();if(!d)d=newDayObj();
+  const v=await ask('⏳ Waiting for water',[{k:'notes',l:'Notes (optional)',t:'text'}],{ok:'▶ Start timer',alt:'Already done – enter hours',focus:false,msg:S.run?'Your run is paused while you wait and resumes when you stop.':'Times the downtime waiting for the water tanks.'});if(!v)return;
+  if(v._alt){const hv=await ask('Waiting for water – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;if(badHrs(hv.h)){toast(HRS_MSG+' – nothing saved',true);return}const ts=Date.now();d.acts.push({id:uid(),type:'water',f:{},notes:v.notes||'',s:ts,e:ts,hrs:hv.h,pauses:[],resumeActs:[]});save();render();return}
+  const ts=Date.now(),a={id:uid(),type:'water',f:{},notes:v.notes||'',s:ts,e:null,pauses:[],resumeActs:[]};
+  armBreakdown(a,ts);d.acts.push(a);save();render()},
  dirMode(){const d=D();if(!d)return;d.dirMode=!d.dirMode;if(S.run&&S.run.dayId===d.id)S.run.dir=d.dirMode;save();render();toast(d.dirMode?'Directional mode ON – runs won\'t count':'Directional mode OFF')},
  dirRun(){if(!S.run)return;S.run.dir=!S.run.dir;save();render()},
  endEarly(){const r=S.run;if(!r)return;const s=curSeg();if(s.e==null){s.e=Date.now();r.endEarly=true;save();render()}return finishRun(s.e,true)}, // v5: end time frozen at the tap, kept if the form is cancelled
@@ -968,35 +1054,41 @@ const A={
   const v=await ask('Edit run',[{k:'from',l:'From (m)',t:'num',v:r.from},{k:'to',l:'To (m)',t:'num',v:r.to},{k:'latch',l:'Latch time (m:ss)',t:'text',v:mmss(st.latch)},{k:'drill',l:'Drilling time (m:ss)',t:'text',v:mmss(st.drill)},{k:'pull',l:'Pull time (m:ss)',t:'text',v:mmss(st.pull)},{k:'notes',l:'Notes',t:'text',v:r.notes||''},{k:'dir',l:'Directional run (doesn\'t count)',t:'check',v:!!r.dir},{k:'del',l:'Delete this run',t:'check'}],{focus:false});
   if(!v)return;
   if(v.del){if(await confirmBox('Delete this run?')){d.runs=d.runs.filter(x=>x!==r);save()}render();return}
-  r.dir=!!v.dir;r.from=v.from??r.from;r.to=v.to??r.to;r.notes=v.notes||'';r.pieces[0].from=r.from;r.pieces[r.pieces.length-1].to=r.to;r.ov=r.ov||{};
+  r.dir=!!v.dir;r.from=v.from??r.from;r.to=v.to??r.to;if(r.from!=null&&r.to!=null){delete r.noDepth;if(r.target==null)r.target=r.to}r.notes=v.notes||'';r.pieces[0].from=r.from;r.pieces[r.pieces.length-1].to=r.to;r.ov=r.ov||{};
   ['latch','drill','pull'].forEach(k=>{const ms=pmmss(v[k]);if(ms!=null&&Math.abs(ms-st[k])>=1000)r.ov[k]=ms});
   if(d.runs[d.runs.length-1]===r)d.curDepth=r.to;save();render()},
  async startAct(el){buzz();const type=el.dataset.v,def=ACTS[type];let d=D();if(!d)d=newDayObj();const cur=dayDepth(d);
   const fields=actFields(type,null,cur);fields.push({k:'notes',l:'Notes',t:'text'});
   const v=await ask(def.n,fields,{ok:'▶ Start timer',alt:'Already done – enter hours',focus:false});if(!v)return;
   const f={};actFieldKeys(type,null).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)f[k]=v[k]});
-  if(v._alt){const hv=await ask(def.n+' – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;const ts=Date.now();d.acts.push({id:uid(),type,f,notes:v.notes||'',s:ts,e:ts,hrs:hv.h,pauses:[]});save();render();return}
+  if(v._alt){const hv=await ask(def.n+' – hours',[{k:'h',l:'Hours',t:'num',v:0.5}]);if(!hv||hv.h==null)return;if(badHrs(hv.h)){toast(HRS_MSG+' – nothing saved',true);return}const ts=Date.now();d.acts.push({id:uid(),type,f,notes:v.notes||'',s:ts,e:ts,hrs:hv.h,pauses:[]});save();render();return}
+  if(type==='water'&&waterLive()){toast('Waiting for water is already running',true);return} // QA6: one live water timer, whichever button starts it
+  if(type==='breakdown'&&hasLiveBreakdown()){toast('A breakdown is already running',true);return}
   const ts=Date.now();
   const a={id:uid(),type,f,notes:v.notes||'',s:ts,e:null,pauses:[]};
-  if(type==='breakdown')armBreakdown(a,ts);
-  else if(S.run&&pauseRun(ts)){a.resumeRun=true;toast('Run paused')}
+  if(type==='breakdown'||type==='water')armBreakdown(a,ts); // v6.1: waiting for water pauses the run (and other timers) like a breakdown
+  else holdRun(a,ts);
   d.acts.push(a);save();render()},
  async stopAct(el){buzz();const ts=Date.now();const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;const a=found.a,def=ACTS[a.type];
   const fields=actFields(a.type,a.f);fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
   const v=await ask('Stop '+def.n+' · '+fdur(actElapsedMs(a,ts)),fields,{ok:'⏹ Stop & save',focus:false});if(!v)return;
   a.f=a.f||{};actFieldKeys(a.type,a.f).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';endActPause(a,ts);a.e=ts;
-  (a.resumeActs||[]).forEach(id=>{const found=runningActs().find(x=>x.a.id===id);if(found)endActPause(found.a,ts)});
-  if(a.resumeRun&&S.run&&curSeg().t==='pause'){resumeRun(ts);toast('Run resumed')}
+  releaseAll(a,ts); // QA4: resume only what nothing else still holds
   save();render();
   if(a.type==='rodpull')return rodCountSheet(found.d,a)}, // v6: count the rods on deck after a trip out
  pauseAct(el){const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;beginActPause(found.a);save();render()},
- resumeAct(el){const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;endActPause(found.a);save();render()},
+ resumeAct(el){const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;const hn=holdNames(found.a.pausedBy);
+  if(hn){toast(`Paused while ${hn} is running – stop that first`,true);return} // QA5: never two timers counting at once
+  found.a.pausedBy=[];endActPause(found.a);save();render()},
  async editAct(el){const d=S.days[el.dataset.d],a=d&&d.acts.find(x=>x.id===el.dataset.v);if(!a)return;const def=ACTS[a.type];
   const fields=actFields(a.type,a.f);fields.push({k:'notes',l:'Notes',t:'text',v:a.notes});
   if(a.e||a.hrs!=null)fields.push({k:'hrs',l:'Hours',t:'num',v:r2(actH(a))});
   fields.push({k:'type',l:'Type',t:'select',v:a.type,o:Object.entries(ACTS).map(([k,x])=>[k,x.n])},{k:'del',l:'Delete this entry',t:'check'});
-  const v=await ask('Edit '+(def?.n||a.type),fields,{focus:false});if(!v)return;
-  if(v.del){if(await confirmBox('Delete this entry?')){d.acts=d.acts.filter(x=>x!==a);save()}render();return}
+  const canShort=!!(a.e&&a.s&&a.hrs==null&&actElapsedMs(a)>=60000);
+  const v=await ask('Edit '+(def?.n||a.type),fields,{focus:false,alt:canShort?'✂ Shorten and give time to…':null});if(!v)return;
+  if(v._alt)return shortenAct(d,a);
+  if(v.del){if(await confirmBox('Delete this entry?')){if(!a.e&&a.hrs==null){const ts=Date.now();endActPause(a,ts);a.e=ts;releaseAll(a,ts)}d.acts=d.acts.filter(x=>x!==a);save()}render();return}
+  if(badHrs(v.hrs)){toast(HRS_MSG+' – nothing changed',true);render();return} // QA7
   a.f=a.f||{};actFieldKeys(a.type,a.f).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';a.type=v.type||a.type;
   if(v.hrs!=null&&Math.abs(v.hrs-r2(actH(a)))>0.004)a.hrs=v.hrs;save();render()},
  async bitChange(el){const kind=el.dataset.v;let d=D();if(!d)d=newDayObj();const cb=curBit(kind);
@@ -1011,7 +1103,7 @@ const A={
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
- makeCur(el){S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
+ makeCur(el){if(S.cur!==el.dataset.v)clearFix();S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
  async delDay(el){const id=el.dataset.v;if(S.run&&S.run.dayId===id){toast('Finish the running run first');return}
   if(await confirmBox(`Delete shift ${nice(S.days[id].date)}? This cannot be undone.`)){delete S.days[id];if(S.cur===id)S.cur=null;viewDay=null;save()}render()},
  per(el){perOff+=+el.dataset.v;render()},
@@ -1022,8 +1114,9 @@ const A={
  async endShift(){buzz();const d=D();if(!d){toast('No shift open');return}
   // v6: end-of-shift wrap-up first, then (if set up) the Drive backup step
   const v=await ask('End of shift',[{k:'notes',l:'Notes for the report (one per line)',t:'textarea',v:d.reportNotes||''}],{msg:wrapHtml(d),ok:'✔ Done',focus:false});
-  if(!v)return;d.reportNotes=v.notes||'';d.endedAt=Date.now();save();render();
-  if(!driveConfigured()){toast('Shift wrapped up. Drive backup not set up yet');return}
+  if(!v)return;d.reportNotes=v.notes||'';d.endedAt=Date.now();clearFix();save();render(); // the "Undo fix" lasts until the end of the shift
+  if(!driveConfigured()){const live=[S.run?'core run':'',...runningActs().map(x=>ACTS[x.a.type]?.n||x.a.type)].filter(Boolean);
+   toast(live.length?`⚠ Shift wrapped up, but a timer is still running (${live.join(', ')}). Stop it on the Timer tab. Drive backup not set up yet.`:'Shift wrapped up. Drive backup not set up yet',!!live.length);return}
   if(S.run||runningActs().length){if(!await ask('A timer is still running. Back up anyway?',[],{ok:'Back up anyway',danger:true,msg:'Cancel keeps timing and does not back up.'})){toast('Not backed up – timer still running');return}}
   return driveBackup('end shift')},
  pickCrew(el){const d=D();if(!d)return;const slot=el.dataset.slot==='helper2'?'helper2':'helper',n=el.dataset.v,other=slot==='helper'?'helper2':'helper';
@@ -1036,6 +1129,7 @@ const A={
  async unanchor(el){const f=el.dataset.v;if(!await confirmBox(`Remove the new hitch start from ${nice(f)}? Days from then go back to the earlier pattern.`,'Remove'))return;S.settings.rotaAnchors=(S.settings.rotaAnchors||[]).filter(a=>a.from!==f);save();render()},
  bfAdd(){bfRows.push(bfNewRow());render()},
  bfCopy(){const last=bfRows[bfRows.length-1];bfRows.push(last?Object.assign({},last,{date:isDate(last.date)?addDays(last.date,1):last.date,helpers:(last.helpers||[]).slice()}):bfNewRow());render()},
+ bfReset(el){const r=bfRows[+el.dataset.v];if(!r)return;const a=bfAuto(r);r.counted=a==null?'':String(a);r.countedEdited=false;render()},
  bfDel(el){bfRows.splice(+el.dataset.v,1);if(!bfRows.length)bfRows.push(bfNewRow());render()},
  bfSave(){return bfPreview()},
  bfBack(){bfStage='edit';render()},
@@ -1049,6 +1143,16 @@ const A={
  statShare(){return shareText('Me vs cross shift',statsText(statsData(statRange())))},
  bitDismiss(el){return bitDismiss(el.dataset.v)},
  pre6Undo(){return pre6Undo()},
+ safe0Restore(){return safe0Restore()},
+ safe0Clear(){return safe0Clear()},
+ curUndo(el){return curUndo(el)},
+ fixRun(){return fixLive('run',null)},
+ fixAct(el){return fixLive('act',el.dataset.v)},
+ fixSet(el){const f=$('#mf');if(f&&f.elements.dur){f.elements.dur.value=el.dataset.v;f.elements.dur.dispatchEvent(new Event('input',{bubbles:true}))}},
+ fixStep(el){const f=$('#mf');if(!f||!f.elements.dur)return;const cur=fixParse(f.elements.dur.value);const v=Math.max(0,(cur==null?0:cur)+(+el.dataset.v)*60000);f.elements.dur.value=fixFmt(v);f.elements.dur.dispatchEvent(new Event('input',{bubbles:true}))},
+ fixUndo(){return fixUndo()},
+ curKeep(el){return curKeep(el)},
+ storeWarnOk(){storeWarn=null;render()},
  bfUndo(){return bfUndo()},
  keepRestore(){return keepRestore()},
  driveBackup(){return driveBackup('manual')},
@@ -1063,17 +1167,192 @@ const A={
   else{rows=[['date','hole','type','report_line','start','end','hours','from_m','to_m','depth_m','count','tool','desc','eos','notes']];
    days.forEach(d=>(d.acts||[]).forEach(a=>{const f=a.f||{};rows.push([d.date,d.hole,ACTS[a.type]?.n||a.type,S.settings.map[a.type],a.s?new Date(a.s).toLocaleString():'',a.e?new Date(a.e).toLocaleString():'',r2(actH(a)),f.from,f.to,f.depth,f.count,f.tool,f.desc,f.eos?'yes':'',a.notes])}))}
   download(`drill-${k}-${todayStr()}.csv`,csv(rows),'text/csv')},
- async wipe(){if(await confirmBox('Delete ALL shifts and settings on this phone, including the restore undo copy, the bulk-add undo copy and the pre-v6 copy? Export a backup first!','Delete everything')&&await confirmBox('Really delete everything?','Yes, wipe')){[KEY,PREV_KEY,PREV_META,BF_PREV,BF_META,PRE6_KEY,PRE6_META,PRE6_CUR].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});load();render();toast('All data deleted')}}
+ async wipe(){if(await confirmBox('Delete ALL shifts and settings on this phone, including the restore undo copy, the bulk-add undo copy, the pre-v6 copy and the oldest safe copy? Export a backup first!','Delete everything')&&await confirmBox('Really delete everything?','Yes, wipe')){[KEY,PREV_KEY,PREV_META,BF_PREV,BF_META,PRE6_KEY,PRE6_META,PRE6_CUR,PRE6_CUR+'.meta',SAFE0,SAFE0_META,SAFE0_CUR,SAFE0_CUR+'.meta',IMP_CUR,IMP_CUR+'.meta',FIX_KEY].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});load();render();toast('All data deleted')}}
 };
 async function finishRun(ts,early){
  const r=S.run;if(!r)return;const last=r.pieces[r.pieces.length-1];
- const v=await ask(early?'End run here':'Run finished',[{k:'to',l:'Depth reached (m)',t:'num',v:early?last.from:r.target},{k:'notes',l:'Notes (optional)',t:'text',v:r.notes||''}],{ok:'Save run',msg:`Run ${fm(r.from)} → ${fm(r.target)} m · ${fdur(runStats(r).total)}`,focus:false});
- if(!v||v.to==null)return;
+ // v6.1 QA62-5: same depth rule as Shorten / the Pulling fix – Depth reached can't be above where this piece started (no negative metres),
+ // and must be deeper than it unless it's "End run here" (0 m allowed). The refusal shows in the sheet only; it stays open until fixed or cancelled.
+ let v,dTo=early?last.from:r.target,dNotes=r.notes||'',bad='';
+ for(;;){
+  v=await ask(early?'End run here':'Run finished',[{k:'to',l:'Depth reached (m)',t:'num',v:dTo},{k:'notes',l:'Notes (optional)',t:'text',v:dNotes}],{ok:'Save run',msg:(bad?`<div class="warn" id="finBad">⚠ ${esc(bad)}</div>`:'')+`Run ${fm(r.from)} → ${fm(r.target)} m · ${fdur(runStats(r).total)}`,focus:false});
+  if(!v||v.to==null)return;
+  if(last.from!=null&&(+v.to<+last.from-1e-9||(!early&&Math.abs(+v.to-+last.from)<1e-9))){bad=+v.to<+last.from?`Depth reached can't be less than ${fm(last.from)} m (where this piece started).`:`Depth reached must be deeper than ${fm(last.from)} m (where this piece started).`;dTo=v.to;dNotes=v.notes||'';continue}
+  break}
  const s=curSeg();if(!s.e)s.e=ts;last.to=v.to;r.to=v.to;r.end=s.e;r.notes=v.notes||'';delete r.resume;delete r.endEarly;
  const d=S.days[r.dayId]||D();d.runs.push(r);d.curDepth=v.to;S.run=null;
  if(S.settings.autoNext&&!early&&S.cur===d.id)startRunAt(v.to,Date.now()); // v4.1: stamp next run at modal confirm, like Start run
  save();render();toast(`Saved ${fm(r2(v.to-r.from))} m`);
 }
+
+/* ===== v6.1: Fix a running timer ("it really ended after…") and Shorten a finished entry =====
+ All changes are plain edits of the same data the calculator already reads (run segs, act s/e/pauses, d.runs),
+ so metres, the timed-run overlap rule, pace, bit alerts, totals, pay and the report need no special case.
+ The shift keeps its date (d.date) whatever the clock says – a window over midnight or the 08:00 cut-off stays on that shift.
+ QA62-1/2: the part of the window after the new end (its "rest") is handed to the next entry AS IS – active where the old entry was
+ active, paused where it was paused (a live pause stays live) – so the active time of all entries in the window never changes.
+ QA62-3/7: ONE undo, kept in its own key ffdt.fixundo (not in ffdt.v1, so it is never exported/backed up and is the first thing dropped
+ when storage is full). It holds only the entries the fix touched (before + after, by id). Undo refuses if the current shift changed or
+ any of those entries changed since the fix; it is cleared by the next fix, End shift, New shift, switching shift, import and every restore. */
+const getFix=()=>{try{const u=JSON.parse(localStorage.getItem(FIX_KEY)||'null');return u&&typeof u==='object'&&u.dayId&&u.acts?u:null}catch(e){return null}};
+function clearFix(){try{localStorage.removeItem(FIX_KEY)}catch(e){}}
+const FIX_MIN=[1,2,3,4,5,10,15,20,30];
+const PHASE_N={latch:'Latching',drill:'Drilling',pull:'Pulling tube'},NEXT_PH={latch:'drill',drill:'pull'};
+const fixParse=t=>{t=String(t??'').trim().replace(',','.');if(!t)return null;let m=t.match(/^(\d+):(\d{1,2})$/);if(m)return(+m[1]*60+(+m[2]))*1000;m=t.match(/^-?\d+(\.\d+)?$/);return m?Math.round(+t*60000):NaN};
+const fixFmt=ms=>{const s=Math.round(ms/1000);return s%60?`${Math.floor(s/60)}:${pad(s%60)}`:String(s/60)};
+const fixDur=ms=>{const m=Math.round(ms/60000);return ms%60000&&ms<3600000?`${Math.floor(ms/60000)}:${pad(Math.round(ms%60000/1000))} min`:m>=60?`${Math.floor(m/60)} h ${m%60} min`:`${m} min`};
+// timeline of an activity: [{k:'a'|'p',s,e}] in order; e=null = still going (live)
+function actLine(a){const out=[];let t=a.s;(a.pauses||[]).slice().sort((x,y)=>x.s-y.s).forEach(p=>{if(a.e!=null&&p.s>=a.e)return;if(p.s>t)out.push({k:'a',s:t,e:p.s});
+  const pe=p.e==null?(a.e??null):(a.e!=null?Math.min(p.e,a.e):p.e);if(p.s>=t||pe==null||pe>t)out.push({k:'p',s:Math.max(p.s,t),e:pe});t=pe==null?Infinity:Math.max(t,pe)});
+ if(t!==Infinity&&(a.e==null||a.e>t))out.push({k:'a',s:t,e:a.e??null});return out.filter(x=>x.e==null||x.e>x.s)}
+const lineIv=(ln,now)=>ln.filter(x=>x.k==='a').map(x=>[x.s,x.e??now]).filter(([x,y])=>y>x);
+// active (unpaused) intervals of an activity, in order
+function actActive(a,now){return lineIv(actLine(a),now)}
+// the part of a timeline after T (cut at T); a live last piece stays live
+const lineRest=(ln,T)=>ln.filter(x=>x.e==null||x.e>T).map(x=>({k:x.k,s:Math.max(x.s,T),e:x.e})).filter(x=>x.e==null||x.e>x.s);
+const restPauses=rest=>rest.filter(x=>x.k==='p').map(x=>({s:x.s,e:x.e}));
+const restSegs=(rest,ph,p)=>rest.map(x=>({t:x.k==='a'?ph:'pause',p,s:x.s,e:x.e}));
+const restTxt=rest=>{const ps=rest.filter(x=>x.k==='p');return ps.length?' · pause carried over: '+ps.map(x=>`${hm(x.s)}–${x.e==null?'now (still paused)':hm(x.e)}`).join(', '):''};
+// the current phase of the live run (a hand pause at the end is allowed; one held by a timer is not)
+function runPhase(r,now){const sg=r.segs;let k=sg.length-1;while(k>=0&&sg[k].t==='pause')k--;if(k<0)return null;const last=sg[k];
+ if(k<sg.length-1){if(sg[sg.length-1].e!=null||(Array.isArray(r.holds)&&r.holds.length))return null}else if(last.e!=null)return null;
+ let i=k;while(i>0&&(sg[i-1].t==='pause'||(sg[i-1].t===last.t&&sg[i-1].p===last.p)))i--;while(sg[i].t==='pause')i++;
+ const line=sg.slice(i).map(x=>({k:x.t==='pause'?'p':'a',s:x.s,e:x.e}));return{t:last.t,p:last.p,i,line,iv:lineIv(line,now),start:sg[i].s,paused:k<sg.length-1}}
+// end time after `ms` of active time; pauses inside push the end later
+function endAfter(iv,ms){let left=ms;for(const x of iv){const d=x[1]-x[0];if(left<=d)return{T:x[0]+left};left-=d}return null}
+const ivMs=iv=>iv.reduce((t,x)=>t+(x[1]-x[0]),0);
+// every start / stop / pause time of the OTHER entries of that shift (manual-hours entries have no real times)
+function dayEvents(d,skipAct,skipRun){const ev=[],add=(t,n)=>{if(t!=null)ev.push({t,n})};
+ (d.acts||[]).forEach(a=>{if(!a||a===skipAct||a.hrs!=null)return;const n=ACTS[a.type]?.n||a.type;add(a.s,n);add(a.e,n);(a.pauses||[]).forEach(p=>{add(p.s,n);add(p.e,n)})});
+ (d.runs||[]).forEach(r=>(r.segs||[]).forEach(x=>{add(x.s,'a core run');add(x.e,'a core run')}));
+ if(S.run&&S.run.dayId===d.id&&!skipRun)S.run.segs.forEach(x=>{add(x.s,'the core run');add(x.e,'the core run')});return ev}
+function fixClash(d,lo,hi,skipAct,skipRun,okAt){const c=dayEvents(d,skipAct,skipRun).filter(e=>e.t>lo&&e.t<hi&&!(okAt&&okAt(e))).sort((x,y)=>x.t-y.t)[0];
+ return c?`That would overlap ${c.n} (${hm(c.t)}) – nothing changed. Fix that entry first.`:null}
+const runJ=()=>JSON.stringify(S.run??null);
+const byId=arr=>{const m=new Map();(arr||[]).forEach((x,i)=>{if(x&&x.id!=null)m.set(x.id,{j:JSON.stringify(x),i})});return m};
+function fixBegin(d){return{dayId:d.id,cur:S.cur,acts:byId(d.acts),runs:byId(d.runs),live:runJ(),cd:JSON.stringify([d.curDepth,d.startDepth])}}
+// keep only what changed: {id:[before|null, after|null, beforeIndex]}
+function fixDiff(b,a){const o={};new Set([...b.keys(),...a.keys()]).forEach(id=>{const x=b.get(id),y=a.get(id);if((x&&x.j)!==(y&&y.j))o[id]=[x?x.j:null,y?y.j:null,x?x.i:-1]});return o}
+function fixCommit(u0,label){const d=S.days[u0.dayId],live=runJ();
+ const u={dayId:u0.dayId,cur:u0.cur,label,at:Date.now(),acts:fixDiff(u0.acts,byId(d.acts)),runs:fixDiff(u0.runs,byId(d.runs))};
+ if(live!==u0.live)u.live=[u0.live,live];const cd=JSON.stringify([d.curDepth,d.startDepth]);if(cd!==u0.cd)u.cd=[u0.cd,cd];
+ clearFix();let ok=true;try{localStorage.setItem(FIX_KEY,JSON.stringify(u))}catch(e){ok=false}
+ if(!ok){fixApply(u,d);render();toast('⚠ Phone storage is full – nothing changed (no room to keep the Undo). Export a backup (Settings → Export backup).',true);return}
+ if(!save()){clearFix();fixApply(u,d);render();return}
+ render();toastBig('✔ Fixed: '+label+' · Undo fix is on the Log tab')}
+// put the touched entries back (before state); untouched entries stay as they are
+function fixApply(u,d){const put=(arr,m)=>{Object.entries(m).sort((x,y)=>x[1][2]-y[1][2]).forEach(([id,[b]])=>{const i=arr.findIndex(x=>x&&String(x.id)===String(id));if(i>=0)arr.splice(i,1)});
+  Object.entries(m).filter(([,v])=>v[0]!=null).sort((x,y)=>x[1][2]-y[1][2]).forEach(([,[b,,bi]])=>arr.splice(Math.min(bi,arr.length),0,JSON.parse(b)))};
+ put(d.acts,u.acts);put(d.runs,u.runs);if(u.live)S.run=JSON.parse(u.live[0]);if(u.cd){const[c,s]=JSON.parse(u.cd[0]);d.curDepth=c;d.startDepth=s;if(c===undefined)delete d.curDepth;if(s===undefined)delete d.startDepth}}
+// why an undo would lose something (null = safe)
+function fixUndoBlock(u){const d=S.days[u.dayId];if(!d||S.cur!==u.cur)return 'You are on a different shift now – that fix can no longer be undone.';
+ const cur=(arr,m)=>{const now=byId(arr);for(const[id,v]of Object.entries(m)){const x=now.get(id)||now.get(+id);if((x?x.j:null)!==v[1])return true}return false};
+ if(cur(d.acts,u.acts)||cur(d.runs,u.runs)||(u.live&&runJ()!==u.live[1])||(u.cd&&JSON.stringify([d.curDepth,d.startDepth])!==u.cd[1]))
+  return 'Those timers changed after the fix (stopped, paused or edited) – undo would lose that. Nothing changed. Edit the entries by hand instead.';
+ return null}
+function fixUndoCard(){const u=S&&getFix();if(!u||u.cur!==S.cur)return '';return `<div class="card" id="fixUndoCard"><p class="mut sm" id="fixUndoInfo">Last fix (${esc(hm(u.at))}): ${esc(u.label||'')}</p><button class="btn ghost glove" data-a="fixUndo" id="fixUndoBtn" style="margin:0">↩ Undo fix</button></div>`}
+async function fixUndo(){const u=getFix();if(!u){toast('Nothing to undo');return}let why=fixUndoBlock(u);if(why){toast(why,true);return}
+ if(!await ask('Undo fix?',[],{ok:'Undo fix',danger:true,focusCancel:true,msg:`<div id="fixUndoMsg">Puts back only the timers this fix changed: ${esc(u.label)}. Everything else stays as it is.</div>`}))return;
+ why=fixUndoBlock(u);if(why){toast(why,true);return}
+ fixApply(u,S.days[u.dayId]);clearFix();save();render();toastBig('↩ Fix undone')}
+function nextOpts(curType,skipId,withRun,runLab){const o=[];if(withRun)o.push(['run',runLab]);
+ Object.entries(ACTS).forEach(([k,v])=>{if(k==='water'&&runningActs().some(x=>x.a.type==='water'&&x.a.id!==skipId))return;if(k==='breakdown'&&runningActs().some(x=>x.a.type==='breakdown'&&x.a.id!==skipId))return;o.push([k,v.ic+' '+v.n])});return o}
+function newAct(type,T,rest){return{id:uid(),type,f:{},notes:'',s:T,e:null,pauses:rest?restPauses(rest):[]}}
+async function fixForm(title,activeMs,startTs,nexts,defNext,extra){
+ const quick=`<div class="fixq" id="fixQuick" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:8px 0">${FIX_MIN.filter(m=>m*60000<=activeMs).map(m=>`<button type="button" class="btn ghost glove" data-a="fixSet" data-v="${m}" style="margin:0">${m} min</button>`).join('')}</div>
+ <div class="row" style="margin-bottom:8px"><button type="button" class="btn ghost glove" data-a="fixStep" data-v="-1" id="fixMinus">− 1 min</button><button type="button" class="btn ghost glove" data-a="fixStep" data-v="1" id="fixPlus">+ 1 min</button></div>`;
+ return ask(title,[{k:'dur',l:'It really took (minutes, or m:ss)',t:'text',v:''},{k:'next',l:'Then I started',t:'select',v:defNext,o:nexts},...(extra||[])],
+  {ok:'Next',focus:false,msg:`<div id="fixInfo">Started ${hm(startTs)} · timed so far ${fixDur(activeMs)} (pauses not counted)</div>`+quick})}
+function fixPreview(title,line,warn){return ask(title,[],{ok:'✔ Fix it',focusCancel:true,msg:`<div id="fixPrev" style="font-size:18px;font-weight:700">${esc(line)}</div>`+(warn?`<div class="warn" style="margin-top:8px">${esc(warn)}</div>`:'')})}
+function fixDurCheck(ms,activeMs){if(ms==null||isNaN(ms)){toast('Type how long it really took (e.g. 4 or 3:30)',true);return false}
+ if(ms<=0){toast('The time must be more than 0 – nothing changed',true);return false}
+ if(ms>activeMs){toast(`Too long – it has only been timing ${fixDur(activeMs)} – nothing changed`,true);return false}return true}
+// QA62-5: one depth rule for Shorten, the Pulling fix and Run finished: To must be deeper than From (equal only when no metres are expected)
+function depthBad(from,to,zeroOk){if(from==null||to==null)return null;if(to<from)return `To (${fm(to)} m) can't be above From (${fm(from)} m) – nothing saved`;if(to===from&&!zeroOk)return `To must be deeper than From (${fm(from)} m) – nothing saved`;return null}
+const restState=rest=>{const l=rest[rest.length-1];return l&&l.e==null&&l.k==='p'?'now paused':'running'};
+async function fixLive(kind,id){buzz();const now=Date.now();
+ if(kind==='run'){const r=S.run;if(!r){toast('No run running');return}const ph=runPhase(r,now);if(!ph){toast('The run is paused by a timer – fix that timer instead');return}const d=S.days[r.dayId];if(!d)return;
+  const activeMs=ivMs(ph.iv),isPull=ph.t==='pull',last=r.pieces[r.pieces.length-1];
+  const nexts=nextOpts(null,null,true,isPull?'⛏ Drilling – new run (this run saved at the tube-out time)':`⛏ ${PHASE_N[NEXT_PH[ph.t]]} (this run)`);
+  const extra=isPull?[{k:'to',l:'Depth reached (m)',t:'num',v:r.target}]:[];
+  const v=await fixForm(`Fix ${PHASE_N[ph.t]}`,activeMs,ph.start,nexts,'run',extra);if(!v)return;
+  const ms=fixParse(v.dur);if(!fixDurCheck(ms,activeMs))return;const now2=Date.now(),cut=endAfter(lineIv(ph.line,Math.max(now,now2)),ms);if(!cut)return;const T=cut.T;
+  if(T>now2){toast("The next entry can't start in the future – nothing changed",true);return}
+  const clash=fixClash(d,T,now2+1,null,true);if(clash){toast(clash,true);return}
+  if(isPull&&v.to==null){toast('Enter the depth reached for the run',true);return}
+  if(isPull){const bad=depthBad(last.from,v.to,false);if(bad){toast(bad,true);return}}
+  const nx=v.next,nxN=nx==='run'?(isPull?`Drilling (new run${d.dirMode?', directional':''})`:PHASE_N[NEXT_PH[ph.t]]):ACTS[nx]?.n;
+  const rest=lineRest(ph.line,T);
+  const line=`${PHASE_N[ph.t]} ${hm(ph.start)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${restState(rest)}${restTxt(rest)}`;
+  if(!await fixPreview(`Fix ${PHASE_N[ph.t]}?`,line,isPull?`The run is saved ${fm(r.from)} → ${fm(v.to)} m, tube out at ${hm(T)}.`:''))return;
+  const u=fixBegin(d),sg=r.segs;let k=sg.length;while(k>0&&!(sg[k-1].s<T&&sg[k-1].t!=='pause'))k--;  // the phase seg holding T
+  sg.length=k;sg[k-1].e=T;delete r.resume;
+  if(isPull){last.to=v.to;r.to=v.to;r.end=T;delete r.endEarly;d.runs.push(r);d.curDepth=v.to;S.run=null;
+   if(nx==='run')fixNewRun(d,v.to,T,rest);else{const b=newAct(nx,T,rest);if(nx==='breakdown'||nx==='water')holdActs(b,T);d.acts.push(b)}}
+  else if(nx==='run'){sg.push(...restSegs(rest,NEXT_PH[ph.t],ph.p));if(sg[sg.length-1].t==='pause')r.resume=NEXT_PH[ph.t]}
+  else{const b=newAct(nx,T,rest);r.resume=NEXT_PH[ph.t];openSeg('pause',ph.p,T);r.holds=[b.id];b.resumeRun=true;if(nx==='breakdown'||nx==='water')holdActs(b,T);d.acts.push(b)}
+  return fixCommit(u,line)}
+ const f=runningActs().find(x=>x.a.id===id);if(!f){toast('That timer is not running');return}const a=f.a,d=f.d;
+ if(isActPaused(a)&&Array.isArray(a.pausedBy)&&a.pausedBy.length){toast(`It is paused by ${holdNames(a.pausedBy)||'another timer'} – fix that timer instead`,true);return}
+ const ln=actLine(a),activeMs=ivMs(lineIv(ln,now)),r=S.run;
+ const held=!!(r&&Array.isArray(r.holds)&&r.holds.includes(a.id)),others=held?r.holds.filter(x=>x!==a.id):[];
+ const rs=r?curSeg():null,runPaused=!!(rs&&rs.t==='pause'&&rs.e==null),resumes=runPaused&&(held?!others.length:!(r.holds||[]).length);
+ const runLab=!r?'⛏ Drilling – new run':resumes?`⛏ Run resumes (${PHASE_N[r.resume||'drill']})`:!runPaused?'⛏ Drilling – the run keeps going':null;
+ const extra=!r?[{k:'from',l:'New run starts at (m)',t:'num',v:dayDepth(d)}]:[];
+ const v=await fixForm(`Fix ${ACTS[a.type]?.n||a.type}`,activeMs,a.s,nextOpts(a.type,a.id,!!runLab,runLab),runLab?'run':'standby',extra);if(!v)return;
+ const ms=fixParse(v.dur);if(!fixDurCheck(ms,activeMs))return;const now2=Date.now(),cut=endAfter(lineIv(ln,Math.max(now,now2)),ms);if(!cut)return;const T=cut.T;
+ if(T>now2){toast("The next entry can't start in the future – nothing changed",true);return}
+ const clash=fixClash(d,T,now2+1,a,false);if(clash){toast(clash,true);return}
+ const nx=v.next;if(nx==='run'&&!runLab){toast(`The run is still paused by ${holdNames(others)} – pick another entry`,true);return}
+ if(nx==='run'&&!r&&v.from==null){toast('Enter the depth the new run starts at',true);return}
+ const rest=lineRest(ln,T),keeps=nx==='run'&&r&&!runPaused;
+ const nxN=nx==='run'?(!r?`Drilling (new run${d.dirMode?', directional':''})`:'Run'):ACTS[nx]?.n;
+ const line=`${ACTS[a.type]?.n||a.type} ${hm(a.s)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${keeps?'running':restState(rest)}${keeps?'':restTxt(rest)}`;
+ if(!await fixPreview(`Fix ${ACTS[a.type]?.n||a.type}?`,line))return;
+ const u=fixBegin(d);a.e=T;a.pauses=(a.pauses||[]).filter(p=>p.s<T).map(p=>p.e==null||p.e>T?{...p,e:T}:p);
+ let b=null;if(nx!=='run'){b=newAct(nx,T,rest);const brk=nx==='breakdown'||nx==='water';
+  if(brk)runningActs().forEach(({a:x})=>{if(x!==a&&x!==b&&Array.isArray(x.pausedBy)&&x.pausedBy.includes(a.id))x.pausedBy.push(b.id)}); // hand the held timers to b
+  if(held){r.holds.push(b.id);b.resumeRun=true}}                                                          // hand the run's hold to b
+ if(nx==='run'&&resumes){// the run takes over the rest of the window as it was: running where the timer ran, paused where it was paused
+  if(held)r.holds.splice(r.holds.indexOf(a.id),1);a.resumeRun=false;const s=curSeg();s.e=T;const ph=r.resume||'drill';S.run.segs.push(...restSegs(rest,ph,s.p));
+  if(curSeg().t!=='pause')delete r.resume}
+ releaseAll(a,T);
+ if(b){if(b.type==='breakdown'||b.type==='water')armBreakdown(b,T);else holdRun(b,T);d.acts.push(b)}
+ else if(!r)fixNewRun(d,v.from,T,rest);
+ return fixCommit(u,line)}
+// QA62-6: a new run follows the shift's Directional mode (startRunAt uses d.dirMode)
+function fixNewRun(d,from,T,rest){startRunAt(from,T,d);S.run.segs[0].e=T;const sg=restSegs(rest&&rest.length?rest:[{k:'a',s:T,e:null}],'drill',0);S.run.segs.push(...sg);if(sg[sg.length-1].t==='pause')S.run.resume='drill'}
+// after the fact: shorten a finished activity and give the freed time to the next entry, or to a new entry
+async function shortenAct(d,a){const ln=actLine(a),iv=lineIv(ln,a.e),activeMs=ivMs(iv),E=a.e,near=t=>t!=null&&Math.abs(t-E)<=1000;
+ // the next entry = whatever starts (or resumes) right when this one ended; only ONE gets the time (else it would count twice)
+ const nxt=[];const nxA=[];(d.acts||[]).forEach(x=>{if(x===a||x.hrs!=null)return;if(near(x.s))nxA.push({k:'act',x,n:ACTS[x.type]?.n||x.type});(x.pauses||[]).forEach(p=>{if(near(p.e))nxA.push({k:'pause',x,p,n:ACTS[x.type]?.n||x.type})})});
+ const runsOf=[...(d.runs||[]),...(S.run&&S.run.dayId===d.id?[S.run]:[])];
+ runsOf.forEach(r=>(r.segs||[]).forEach((g,j)=>{if(!near(g.s))return;const pv=r.segs[j-1];if(j===0)nxt.push({k:'run0',r,g,n:'Core run'});else if(pv&&pv.t==='pause'&&near(pv.e))nxt.push({k:'runres',r,g,pv,n:'Core run'})}));nxt.push(...nxA); // the core run first
+ const opts=[...nxt.map((n,i)=>[i?'next:'+i:'next','➡ Next entry starts earlier: '+n.n]),['new:run',`⛏ New Drilling run${d.dirMode?' (directional)':''}`],...Object.entries(ACTS).map(([k,v])=>['new:'+k,'＋ New '+v.n])];
+ const v=await ask(`Shorten ${ACTS[a.type]?.n||a.type}`,[{k:'dur',l:'It really took (minutes, or m:ss)',t:'text',v:fixFmt(activeMs)},{k:'give',l:'Give the freed time to',t:'select',v:'new:run',o:opts},
+   {k:'from',l:'New run: From (m) – blank if not known',t:'num',v:dayDepth(d)},{k:'to',l:'New run: To (m) – blank if not known',t:'num'}],
+  {ok:'Next',focus:false,msg:`<div id="fixInfo">${hm(a.s)}–${hm(E)} · ${fixDur(activeMs)} (pauses not counted)</div><div class="row" style="margin:8px 0"><button type="button" class="btn ghost glove" data-a="fixStep" data-v="-1">− 1 min</button><button type="button" class="btn ghost glove" data-a="fixStep" data-v="1">+ 1 min</button></div>`});
+ if(!v)return;const ms=fixParse(v.dur);if(!fixDurCheck(ms,activeMs))return;if(ms>=activeMs){toast('That is not shorter – nothing to give',true);return}
+ const T=endAfter(iv,ms).T;if(T>Date.now()){toast("Can't start in the future",true);return}
+ const g=String(v.give||''),isNext=/^next/.test(g),n=isNext?nxt[+(g.split(':')[1]||0)]:null,type=g.replace(/^new:/,'');if((isNext&&!n)||(!isNext&&type!=='run'&&!ACTS[type])){toast('Pick who gets the time',true);return}
+ if(!isNext&&type==='run'&&(v.from==null)!==(v.to==null)){toast('Enter both From and To, or leave both blank',true);return}
+ if(!isNext&&type==='run'){const bad=depthBad(v.from,v.to,false);if(bad){toast(bad,true);return}}
+ const okAt=e=>near(e.t)&&isNext; // the next entry's own start sits at the old end
+ const clash=fixClash(d,T,E,a,false,isNext?okAt:null);if(clash){toast(clash,true);return}
+ const rest=lineRest(ln,T),freed=activeMs-ms; // the freed ACTIVE time; pauses inside the freed span carry over as pauses
+ const nxN=isNext?n.n+' starts at '+hm(T):type==='run'?`new Drilling run${d.dirMode?' (directional)':''} ${hm(T)}–${hm(E)}${v.from!=null?` (${fm(v.from)} → ${fm(v.to)} m)`:' (no depth yet)'}`:`new ${ACTS[type]?.n} ${hm(T)}–${hm(E)}`;
+ const line=`${ACTS[a.type]?.n||a.type} ${hm(a.s)}–${hm(T)} (${fixDur(ms)}) → ${nxN} · gets ${fixDur(freed)}${restTxt(rest)}`;
+ if(!await fixPreview(`Shorten ${ACTS[a.type]?.n||a.type}?`,line))return;
+ const u=fixBegin(d);a.e=T;a.pauses=(a.pauses||[]).filter(p=>p.s<T).map(p=>p.e==null||p.e>T?{...p,e:T}:p);const rp=restPauses(rest),sortP=x=>x.pauses.sort((p,q)=>p.s-q.s);
+ if(isNext){if(n.k==='act'){n.x.s=T;n.x.pauses=[...rp,...(n.x.pauses||[])];sortP(n.x)}
+  else if(n.k==='pause'){n.p.e=T;n.x.pauses.push(...rp);sortP(n.x)}
+  else if(n.k==='run0'){n.r.segs.unshift(...restSegs(rest,n.g.t,n.g.p))}
+  else{n.pv.e=T;n.r.segs.splice(n.r.segs.indexOf(n.g),0,...restSegs(rest,n.g.t,n.g.p))}}
+ else if(type==='run'){const nr={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:d.bitId!=null&&String(d.bitId).trim()?String(d.bitId).trim():null,from:v.from,target:v.to,to:v.to,end:E,notes:'',pieces:[{from:v.from,to:v.to,blocked:false}],pauses:[],
+   segs:[{t:'latch',p:0,s:T,e:T},...restSegs(rest,'drill',0),{t:'pull',p:0,s:E,e:E}]};if(v.from==null)nr.noDepth=true;
+  d.runs.push(nr);d.runs.sort((x,y)=>((x.segs[0]||{}).s||0)-((y.segs[0]||{}).s||0))}
+ else d.acts.push({id:uid(),type,f:{},notes:'',s:T,e:E,pauses:rp});
+ return fixCommit(u,line)}
 
 /* ===== Google Drive backup (v5) =====
    Only runs after a tap. Google Identity Services is loaded on first use (never at boot, never cached by the SW).
@@ -1085,7 +1364,7 @@ const DRV_API='https://www.googleapis.com/drive/v3/files',DRV_UP='https://www.go
 const drv={token:null,exp:0,busy:false,gsiP:null};
 const driveConfigured=()=>!!String(GDRIVE_CLIENT_ID||'').trim();
 const isOffline=()=>{try{return navigator.onLine===false}catch(e){return false}};
-function exportData(){return JSON.parse(JSON.stringify(S))}
+function exportData(){const o=JSON.parse(JSON.stringify(S));delete o.fixUndo;return o} // QA62-4: never carries a fix undo (it lives in ffdt.fixundo anyway)
 function dataCounts(o){const days=Object.values((o&&o.days)||{}).filter(d=>d&&typeof d==='object');let runs=0,acts=0,m=0,last='';
  days.forEach(d=>{runs+=Array.isArray(d.runs)?d.runs.length:0;acts+=Array.isArray(d.acts)?d.acts.length:0;try{m+=+mineCalc(d).counted||0}catch(e){}if(d.date&&d.date>last)last=d.date});return{days:days.length,runs,acts,m:r2(m),lastDate:last||null}}
 function loadGsi(){
@@ -1157,6 +1436,7 @@ async function driveBackup(why){
  finally{drv.busy=false;render()}}
 async function driveRestore(){
  if(!driveConfigured()){toast('Drive backup not set up yet');return}
+ if(prevInfo()){toast('Undo or Keep the last restore first – nothing changed.',true);return} // QA-R4: a 2nd restore would replace data with no copy kept
  if(isOffline()){toast('No signal – try again with signal');return}
  if(drv.busy){toast('Drive busy, try again');return}
  drv.busy=true;let picked=null,file=null;
@@ -1169,27 +1449,28 @@ async function driveRestore(){
   drv.busy=false;
   const v=await ask('Restore from Google Drive',[{k:'id',l:'Pick a backup',t:'select',v:files[0].id,o:info.map(x=>[x.f.id,lab(x)])}],{ok:'Next',focus:false});
   if(!v||!v.id)return;picked=info.find(x=>x.f.id===v.id);if(!picked)return;
-  const pm=prevInfo();
-  if(!await confirmBox(`Replace the data on this phone with the backup from ${lab(picked)}? `+(pm?`Your undo point from ${pm.label} is kept – Undo restore still goes back to that.`:'A copy of your current data is kept – use Undo restore to put it back.'),'Restore'))return;
+  if(!await confirmBox(`Replace the data on this phone with the backup from ${lab(picked)}? A copy of your current data is kept – use Undo restore to put it back.`,'Restore'))return;
   drv.busy=true;
   file=await driveGet(picked.f.id);
  }catch(e){toast('Restore failed: '+((e&&e.message)||'error')+' – nothing was changed');return}
  finally{drv.busy=false}
  // Undo point is written only once: a 2nd restore never replaces the pre-first-restore phone data.
  let hasPrev=false;try{hasPrev=localStorage.getItem(PREV_KEY)!=null}catch(e){toast('Could not check the undo copy – restore cancelled');return}
- if(!hasPrev){let raw=null;try{raw=localStorage.getItem(KEY)}catch(e){}
-  try{const pv=raw!=null?raw:JSON.stringify(exportData());localStorage.setItem(PREV_KEY,pv);let n=null;try{n=dataCounts(JSON.parse(pv)).days}catch(e){}
-   try{localStorage.setItem(PREV_META,JSON.stringify({savedAt:Date.now(),days:n}))}catch(e){}}
-  catch(e){try{localStorage.removeItem(PREV_KEY)}catch(x){}toast('Could not keep a copy of current data – restore cancelled');return}}
+ if(hasPrev){toast('Undo or Keep the last restore first – nothing changed.',true);return}
+ {let raw=null;try{raw=localStorage.getItem(KEY)}catch(e){}
+  takeSafe0('drive restore');
+  const pv=raw!=null?raw:JSON.stringify(exportData());let n=null;try{n=dataCounts(JSON.parse(pv)).days}catch(e){}
+  if(!storeSafe(PREV_KEY,pv,PREV_META,{savedAt:Date.now(),days:n})){toast('Could not keep a copy of current data – restore cancelled. Export a backup first.',true);return}}
  applyImport(file.data,'replace');toastBig('✔ Restored from Google Drive')}
 async function undoRestore(){
  let prev=null;try{prev=localStorage.getItem(PREV_KEY)}catch(e){}
  if(prev==null){toast('Nothing to undo');return}
  const pi=prevInfo(),curN=dataCounts(S).days;
  const umsg=`Put back your phone data from ${esc(pi.label)}${pi.days!=null?` (${plural(pi.days,'shift')})`:''} – the data from before your first restore?`+(pi.days!=null&&curN>pi.days?`<div class="warn" id="undoMore" style="margin-top:8px">⚠ Your phone now has ${plural(curN,'shift')}, more than the undo point. Undo will remove the newer work – export a backup first if you need it.</div>`:'');
- if(!await ask('Undo restore?',[],{ok:'Undo restore',danger:true,msg:umsg}))return;
+ if(!await ask('Undo restore?',[],{ok:'Undo restore',danger:true,focusCancel:true,msg:umsg+undoOrderNote('restore')}))return;
+ takeSafe0('undo restore');
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:null;
- try{localStorage.setItem(KEY,prev);localStorage.removeItem(PREV_KEY);localStorage.removeItem(PREV_META)}catch(e){toast('Undo failed: '+e.message);return}
+ try{localStorage.setItem(KEY,prev);clearFix();localStorage.removeItem(PREV_KEY);localStorage.removeItem(PREV_META)}catch(e){toast('Undo failed: '+e.message);return}
  load();if(keep&&S&&!S._corrupt&&Object.keys(keep).some(k=>S.settings[k]!==keep[k])){Object.assign(S.settings,keep);save()}render();toastBig('↩ Restore undone')}
 function prevInfo(){let prev=null,meta=null;try{prev=localStorage.getItem(PREV_KEY)}catch(e){}if(prev==null)return null;try{meta=JSON.parse(localStorage.getItem(PREV_META)||'null')}catch(e){meta=null}
  const t=meta&&meta.savedAt?new Date(meta.savedAt):null;return{label:t&&!isNaN(t)?nice(todayStr(t))+' '+hm(t):'before your first restore',days:meta&&meta.days!=null?meta.days:null}}
@@ -1247,13 +1528,13 @@ function vSched(){const today=workDate(),yr=schedYear||+today.slice(0,4),base=ro
  <p class="mut sm">Tap a day to switch it work/off or Nights/Days. A night shift that runs past midnight is one shift, dated the evening it starts.</p>
  <div class="legend"><span class="wn" style="background:#2a1f4a">Work night</span><span style="background:#4a3708">Work day</span><span style="background:#0f2a1a">Off</span><span style="border:2px dashed #fff">Changed</span><span style="outline:3px solid var(--red)">Today</span></div></div>
  <div class="row" style="margin-bottom:10px"><button class="btn ghost sm" data-a="schedYr" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center;font-size:22px;font-weight:900" id="schedYr">${yr}</div><button class="btn ghost sm" data-a="schedYr" data-v="1">▶</button></div>`;
- for(let mo=0;mo<12;mo++){const first=new Date(yr,mo,1),n=new Date(yr,mo+1,0).getDate();let cells=DOW.map(x=>`<div class="hd">${x.slice(0,2)}</div>`).join('');
+ for(let mo=0;mo<12;mo++){const first=new Date(yr,mo,1),n=new Date(yr,mo+1,0).getDate();let cells=WD2.map(x=>`<div class="hd">${x}</div>`).join('');
   for(let i=0;i<first.getDay();i++)cells+='<div></div>';
   for(let dn=1;dn<=n;dn++){const ds=`${yr}-${pad(mo+1)}-${pad(dn)}`,hi=hitchInfo(ds);let cls='',sm='';
    if(hi){cls=hi.on?(hi.type==='Night'?'wn':'wd'):'of';sm=hi.on?(hi.type==='Night'?'N':'D')+(hi.schedOn?hi.day:'+'):'off';if(hi.ov||hi.tov)cls+=' ov'}
    if(ds===today)cls+=' td';
    cells+=`<button class="${cls}" data-a="schedDay" data-v="${ds}" id="cal-${ds}">${dn}<small>${sm}</small></button>`}
-  h+=`<div class="card"><h3>${MONF[mo]} ${yr}</h3><div class="cal">${cells}</div></div>`}
+  h+=`<div class="card calcard"><h3>${MONF[mo]} ${yr}</h3><div class="cal">${cells}</div></div>`}
  return h}
 async function schedDay(ds){if(!isDate(ds))return;const hi=hitchInfo(ds);if(!hi)return setHitchFlow(ds);
  const t=hitchText(ds);const y=ds.slice(0,4);
@@ -1282,19 +1563,27 @@ const myName=()=>String(S.settings.myName||'').trim()||'Leo';
 const isMyName=n=>{n=String(n||'').trim().toLowerCase();return !n||n===myName().toLowerCase()};
 const bfIsMe=r=>isMyName(r&&r.driller);
 const crossDayList=()=>Object.values(S.crossDays||{}).filter(d=>d&&typeof d==='object');
-function bfMetres(r){const fr=num(r.from),to=num(r.to);if(fr!=null&&to!=null&&to>fr)return r2(to-fr);if(fr==null&&to==null){const m=num(r.m);return m}return null}
+// v6.1: Counted metres (regular metres that count) – prefilled with To − From until he edits it; typed directly when From/To are blank.
+const bfAuto=r=>{const fr=num(r.from),to=num(r.to);return fr!=null&&to!=null&&to>fr?r2(to-fr):null};
+function bfMetres(r){const c=num(r.counted);if(c!=null)return c;return bfAuto(r)}
+// Row math = the shared calculator on the day object the row will become (mineCalc: counted + DIRM × dir hours). No second copy.
+function bfCalc(r){const mc=mineCalc(bfDay(r));return{counted:mc.drill,dir:mc.dir,cred:mc.cred,total:mc.counted}}
+function bfCalcTxt(r){const c=bfCalc(r);return c.dir?`${fm(c.dir)} h dir = ${fm(c.cred)} m credit · total ${fm(c.total)} m`:`Counted ${fm(c.counted)} m · total ${fm(c.total)} m`}
+function bfRangeBad(r){const dh=num(r.dirH),c=num(r.counted),h=num(r.hrs);return (String(r.dirH??'').trim()!==''&&(dh==null||badHrs(dh)))||(c!=null&&c<0)||(String(r.hrs??'').trim()!==''&&(h==null||badHrs(h)))}
+function bfCalcHtml(i){const r=bfRows[i],dirH=num(r.dirH);if(bfRangeBad(r))return `<div class="bfwho" id="bfCalc${i}" hidden></div>`;return `<div class="bfwho" id="bfCalc${i}">${esc(bfCalcTxt(r))}</div>`+(dirH>0&&!r.countedEdited&&bfAuto(r)!=null?`<div class="warn" id="bfDirHint${i}" style="margin:4px 0 0">ℹ Counted is To − From. Put only the regular metres in Counted (leave out the directional section) – directional metres don't count, the ${fm(DIRM)} m/h credit is added on top.</div>`:'')}
 function bfNewRow(){const last=lastDay(),lc=(S.settings.lastCrew||[]).filter(Boolean);
- return{date:workDate(),shift:S.settings.hitchShift==='Day'?'Day':'Night',driller:myName(),m:'',from:'',to:'',hrs:'',notes:'',helpers:lc.slice(),
+ return{date:workDate(),shift:S.settings.hitchShift==='Day'?'Day':'Night',driller:myName(),counted:'',countedEdited:false,dirH:'',from:'',to:'',hrs:'',notes:'',helpers:lc.slice(),
   drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||'')}}
 function bfNames(){const set=new Set([myName(),...(S.settings.drillerNames||[])]);allDays().forEach(d=>{if(d.driller)set.add(d.driller);if(d.cross&&d.cross.driller)set.add(d.cross.driller)});crossDayList().forEach(d=>{if(d.driller)set.add(d.driller)});return[...set].filter(Boolean)}
 function bfHelperNames(r){const set=new Map();[...crewNames(),...(S.settings.helperNames||[]),...((r&&r.helpers)||[])].forEach(n=>{n=String(n||'').trim();if(n&&!set.has(n.toLowerCase()))set.set(n.toLowerCase(),n)});return[...set.values()]}
 const bfStore=r=>bfIsMe(r)?allDays():crossDayList();
 function bfDupes(r){return bfStore(r).filter(d=>d.date===r.date&&(d.shift||'Night')===r.shift&&(bfIsMe(r)?isMyName(d.driller):String(d.driller||'').trim().toLowerCase()===String(r.driller||'').trim().toLowerCase()))}
 const bfRowKey=r=>`${r.date}|${r.shift}|${bfIsMe(r)?'\u0000me':String(r.driller||'').trim().toLowerCase()}`;
-function bfCheck(row,i,rows){const errs=[],warns=[],fr=num(row.from),to=num(row.to),hr=num(row.hrs),tm=num(row.m),m=bfMetres(row),me=bfIsMe(row);
+function bfCheck(row,i,rows){const errs=[],warns=[],fr=num(row.from),to=num(row.to),hr=num(row.hrs),m=bfMetres(row),dh=num(row.dirH),me=bfIsMe(row);
  if(!isDate(row.date))errs.push('Pick a date');
  if((fr==null)!==(to==null))errs.push('Enter both From and To, or neither');else if(fr!=null&&to<=fr)errs.push('To must be deeper than From');
- else if(m==null)errs.push('Enter From and To depths (or metres if you don\'t know them)');else if(m<0)errs.push('Metres can\'t be negative');
+ else if(m==null)errs.push('Enter From and To, or the counted metres');else if(m<0)errs.push('Counted metres can\'t be negative');
+ if(String(row.dirH??'').trim()!==''&&(dh==null||dh<0||dh>24))errs.push('Directional hours must be 0–24');
  if(String(row.hrs||'').trim()!==''&&(hr==null||hr<0||hr>24))errs.push('Hours must be 0–24');
  if(isDate(row.date)){
   if(row.date>workDate())warns.push('Date is in the future');
@@ -1303,15 +1592,15 @@ function bfCheck(row,i,rows){const errs=[],warns=[],fr=num(row.from),to=num(row.
   if(!me){const host=allDays().find(d=>d.date===row.date&&crossLabel(d).startsWith(row.shift)&&d.cross&&(crossCalc(d.cross).counted||d.cross.from!=null));if(host)warns.push(`Cross-shift metres are already typed on your ${nice(row.date)} shift – stats will use this row instead of those`)}
   (rows||[]).forEach((o,j)=>{if(j<i&&bfRowKey(o)===bfRowKey(row))warns.push(`Same date, shift and driller as row ${j+1}`)});
   if(fr!=null&&to!=null&&to>fr){
-   if(tm!=null&&Math.abs(tm-(to-fr))>0.05)warns.push(`Typed metres (${fm(tm)}) ignored – From/To gives ${fm(r2(to-fr))} m`);
+   if(row.countedEdited&&m!=null&&Math.abs(m-(to-fr))>0.05)warns.push(`Counted ${fm(m)} m (changed) – To − From is ${fm(r2(to-fr))} m`);
    // overlap check per driller / shift: only against the same driller's same shift on that date
    const iv=[];dup.forEach(d=>{(d.runs||[]).filter(r=>!r.dir&&r.from!=null&&r.to!=null).forEach(r=>iv.push([r.from,r.to]));const mi=d.mine||{};if(mi.from!=null&&mi.to!=null)iv.push([mi.from,mi.to])});
    const ov=r2(unionRanges(iv).reduce((t,[a,b])=>t+rangeOverlap(fr,to,a,b),0));
    if(ov>0)warns.push(`From/To overlaps ${fm(ov)} m already logged for ${who} ${row.shift} shift on ${nice(row.date)} – those metres would count twice`);
    (rows||[]).forEach((o,j)=>{if(j===i||bfRowKey(o)!==bfRowKey(row))return;const x=rangeOverlap(fr,to,num(o.from),num(o.to));if(x>0)warns.push(`Overlaps ${fm(x)} m with row ${j+1}`)})}}
  return{errs,warns}}
-function bfWhoHtml(r){const m=bfMetres(r);return `<div class="bfwho ${bfIsMe(r)?'me':'cr'}">${bfIsMe(r)?`✔ Your shift (${esc(myName())}) – counts in your totals`:`↔ Cross shift (${esc(String(r.driller||'').trim()||'?')}) – stats only, never in your totals`}${m!=null&&m>=0?` · ${fm(m)} m`:''}</div>`}
-function bfMsgHtml(i){const c=bfCheck(bfRows[i],i,bfRows);return bfWhoHtml(bfRows[i])+c.errs.map(e=>`<div class="err">✖ ${esc(e)}</div>`).join('')+c.warns.map(w=>`<div class="warn" style="margin:6px 0 0">⚠ ${esc(w)}</div>`).join('')}
+function bfWhoHtml(r){const m=bfCalc(r).total;return `<div class="bfwho ${bfIsMe(r)?'me':'cr'}">${bfIsMe(r)?`✔ Your shift (${esc(myName())}) – counts in your totals`:`↔ Cross shift (${esc(String(r.driller||'').trim()||'?')}) – stats only, never in your totals`}${m!=null&&m>=0?` · ${fm(m)} m`:''}</div>`}
+function bfMsgHtml(i){const c=bfCheck(bfRows[i],i,bfRows);return bfWhoHtml(bfRows[i])+bfCalcHtml(i)+c.errs.map(e=>`<div class="err">✖ ${esc(e)}</div>`).join('')+c.warns.map(w=>`<div class="warn" style="margin:6px 0 0">⚠ ${esc(w)}</div>`).join('')}
 function vBackfill(){if(!bfRows.length)bfRows.push(bfNewRow());if(bfStage==='preview')return vBfPreview();const names=bfNames();
  const f=(i,k,l,t='text',x='')=>`<label>${l}<input data-bf="${i}.${k}" type="${t}" ${t==='number'?'inputmode="decimal" step="any"':''} value="${esc(bfRows[i][k]??'')}" ${x} autocomplete="off"></label>`;
  return `<button class="btn ghost" data-a="tab" data-v="days">← All shifts</button><div class="card"><h2>Add past shifts</h2><p class="mut sm">One row per shift – yours or the cross shift's. Date and From/To (or metres) are needed. Your rows count like any other day; cross-shift rows only show in Me vs cross shift stats.</p></div>
@@ -1320,11 +1609,13 @@ function vBackfill(){if(!bfRows.length)bfRows.push(bfNewRow());if(bfStage==='pre
   <div class="g2">${f(i,'date','Date','date')}<label>Days / Nights<select data-bf="${i}.shift"><option value="Night" ${r.shift==='Night'?'selected':''}>Nights</option><option value="Day" ${r.shift==='Day'?'selected':''}>Days</option></select></label></div>
   ${f(i,'driller','Driller','text','list="bfNames"')}
   <button class="btn ghost sm" data-a="bfCross" data-v="${i}" id="bfCross${i}" style="margin:0 0 10px">${bfIsMe(r)?'↔ Make this a cross-shift row':'↩ Make this my shift'}</button>
-  <div class="g3">${f(i,'from','From (m)','number')}${f(i,'to','To (m)','number')}${f(i,'m','Metres if no From/To','number')}</div>
+  <div class="g2">${f(i,'from','From (m)','number')}${f(i,'to','To (m)','number')}</div>
+  <div class="g2">${f(i,'counted','Counted metres','number')}${f(i,'dirH','Directional hours (optional)','number')}</div>
+  ${r.countedEdited&&bfAuto(r)!=null?`<button class="btn ghost sm" data-a="bfReset" data-v="${i}" id="bfReset${i}" style="margin:0 0 10px">↺ Reset to To − From (${fm(bfAuto(r))} m)</button>`:''}
   <div class="mut sm">Helpers – tap names</div><div class="pick" id="bfHelp${i}">${bfHelperNames(r).map(n=>{const on=(r.helpers||[]).some(x=>x.toLowerCase()===n.toLowerCase());return `<button class="chip${on?' on':''}" data-a="bfHelp" data-i="${i}" data-v="${esc(n)}">${on?'✔ ':''}${esc(n)}</button>`}).join('')}</div>
   <label>Other helper (type a name)<input data-bfh="${i}" type="text" autocomplete="off"></label>
   <div class="g2">${f(i,'drillType','Drill type')}${f(i,'drillNumber','Drill number')}</div>
-  <div class="g2">${f(i,'hrs','Hours (optional)','number')}${f(i,'notes','Notes')}</div>
+  <div class="g2">${f(i,'hrs','Total hours (optional)','number')}${f(i,'notes','Notes')}</div>
   <div id="bfMsg${i}">${bfMsgHtml(i)}</div>
   <button class="btn ghost sm" data-a="bfDel" data-v="${i}" style="margin-top:8px">🗑 Remove row</button></div>`).join('')}
  <div class="row"><button class="btn ghost" data-a="bfAdd" id="bfAdd">＋ Add another row</button><button class="btn ghost" data-a="bfCopy" id="bfCopy">⧉ Copy previous row</button></div>
@@ -1332,21 +1623,22 @@ function vBackfill(){if(!bfRows.length)bfRows.push(bfNewRow());if(bfStage==='pre
 function bfPreview(){let bad=0;bfRows.forEach((r,i)=>{if(bfCheck(r,i,bfRows).errs.length)bad++});
  if(bad){toast(`Fix ${plural(bad,'row')} first`);bfStage='edit';render();return{ok:false}}
  bfStage='preview';window.scrollTo(0,0);render();return{ok:true}}
-function vBfPreview(){const rows=bfRows;let mine=0,cross=0,nm=0,nc=0,dupN=0;
- const tr=rows.map((r,i)=>{const m=bfMetres(r)||0,me=bfIsMe(r),c=bfCheck(r,i,rows),dup=bfDupes(r).length;if(me){mine+=m;nm++}else{cross+=m;nc++}if(dup)dupN++;
-  return `<tr id="bfPrev${i}"><td>${i+1}</td><td>${nice(r.date)}</td><td>${esc(r.shift)}</td><td>${esc(me?myName():String(r.driller||'').trim())}${me?'':' ↔'}</td><td class="n">${fm(m)}</td><td class="n">${fm(num(r.hrs))}</td></tr>${c.warns.length?`<tr><td></td><td colspan="5">${c.warns.map(w=>`<div class="warn" style="margin:2px 0">⚠ ${esc(w)}</div>`).join('')}</td></tr>`:''}`}).join('');
+function vBfPreview(){const rows=bfRows;let nm=0,nc=0,dupN=0;
+ const tot={me:{c:0,cr:0,t:0},cross:{c:0,cr:0,t:0}};
+ const tr=rows.map((r,i)=>{const k=bfCalc(r),me=bfIsMe(r),c=bfCheck(r,i,rows),dup=bfDupes(r).length,o=tot[me?'me':'cross'];o.c+=k.counted;o.cr+=k.cred;o.t+=k.total;if(me)nm++;else nc++;if(dup)dupN++;
+  return `<tr id="bfPrev${i}"><td>${i+1}</td><td>${nice(r.date)}</td><td>${esc(r.shift)}</td><td>${esc(me?myName():String(r.driller||'').trim())}${me?'':' ↔'}</td><td class="n">${fm(k.counted)}</td><td class="n">${fm(k.cred)}</td><td class="n"><b>${fm(k.total)}</b></td><td class="n">${fm(num(r.hrs))}</td></tr>${c.warns.length?`<tr><td></td><td colspan="7">${c.warns.map(w=>`<div class="warn" style="margin:2px 0">⚠ ${esc(w)}</div>`).join('')}</td></tr>`:''}`}).join('');
  return `<div class="card" id="bfPreview"><h2>Check before saving</h2>
- <table class="tbl"><tr><th>#</th><th>Date</th><th>Shift</th><th>Driller</th><th>m</th><th>Hrs</th></tr>${tr}</table>
- <div class="kv"><span>Your shifts</span><b id="bfPrevMine">${plural(nm,'shift')} · ${fm(r2(mine))} m</b></div>
- <div class="kv"><span>Cross-shift rows (stats only)</span><b id="bfPrevCross">${plural(nc,'shift')} · ${fm(r2(cross))} m</b></div>
+ <table class="tbl"><tr><th>#</th><th>Date</th><th>Shift</th><th>Driller</th><th>Counted m</th><th>Dir credit m</th><th>Total m</th><th>Hrs</th></tr>${tr}</table>
+ <div class="kv"><span>Your shifts</span><b id="bfPrevMine">${plural(nm,'shift')} · ${fm(r2(tot.me.c))} m + ${fm(r2(tot.me.cr))} m credit = ${fm(r2(tot.me.t))} m</b></div>
+ <div class="kv"><span>Cross-shift rows (stats only)</span><b id="bfPrevCross">${plural(nc,'shift')} · ${fm(r2(tot.cross.c))} m + ${fm(r2(tot.cross.cr))} m credit = ${fm(r2(tot.cross.t))} m</b></div>
  ${dupN?`<div class="warn" id="bfPrevDup">⚠ ${plural(dupN,'row')} ${dupN===1?'has a date that is':'have dates that are'} already logged for the same driller and shift. You'll be asked about each one – Cancel stops the whole save.</div>`:''}
  <p class="mut sm">An undo point is saved first – Settings → Undo last bulk add puts everything back.</p></div>
  <div class="row"><button class="btn ghost" data-a="bfBack" id="bfBack">← Back</button><button class="btn grn" data-a="bfConfirm" id="bfConfirm">✔ Save ${plural(rows.length,'row')}</button></div>`}
-function bfDay(r){const fr=num(r.from),to=num(r.to),hr=num(r.hrs),me=bfIsMe(r),hasFT=fr!=null&&to!=null,hs=(r.helpers||[]).map(x=>String(x).trim()).filter(Boolean);
+function bfDay(r){const fr=num(r.from),to=num(r.to),hr=num(r.hrs),me=bfIsMe(r),hasFT=fr!=null&&to!=null,cm=num(r.counted),auto=bfAuto(r),dh=num(r.dirH),mStore=hasFT?(cm!=null&&auto!=null&&Math.abs(cm-auto)>1e-9?cm:null):cm,hs=(r.helpers||[]).map(x=>String(x).trim()).filter(Boolean);
  const d={id:uid(),date:r.date,shift:r.shift==='Day'?'Day':'Night',job:'',hole:'',size:S.settings.size,driller:me?myName():String(r.driller||'').trim(),helper:hs[0]||'',helper2:hs.slice(1).join(', '),
   drillType:String(r.drillType||'').trim()||'A5',drillNumber:String(r.drillNumber||'').trim(),bitId:null,
-  startDepth:fr,curDepth:to,travel:0,preop:0,dir:0,dirMode:false,cross:{},mine:{from:hasFT?fr:null,to:hasFT?to:null,m:hasFT?null:num(r.m),totalExcludesTimed:null},runs:[],acts:[],bits:[],cons:[],rodCounts:[],reportNotes:'',notes:String(r.notes||''),comments:null,
-  created:Date.now(),backfilled:true,endedAt:null,bfHours:hr!=null&&hr>0?hr:null};
+  startDepth:fr,curDepth:to,travel:0,preop:0,dir:dh!=null&&dh>0?dh:0,dirMode:false,cross:{},mine:{from:hasFT?fr:null,to:hasFT?to:null,m:mStore,totalExcludesTimed:null},runs:[],acts:[],bits:[],cons:[],rodCounts:[],reportNotes:'',notes:String(r.notes||''),comments:null,
+  created:Date.now(),backfilled:true,bfV:2,endedAt:null,bfHours:hr!=null&&hr>0?hr:null};
  if(!me)d.crossShift=true;return d}
 async function bfSave(){const rows=bfRows.slice();let bad=0;rows.forEach((r,i)=>{if(bfCheck(r,i,rows).errs.length)bad++});
  if(bad){toast(`Fix ${plural(bad,'row')} first`);bfStage='edit';render();return{saved:0,aborted:'errors'}}
@@ -1359,8 +1651,9 @@ async function bfSave(){const rows=bfRows.slice();let bad=0;rows.forEach((r,i)=>
   if(!v||!v.act){toast('Nothing saved');return{saved:0,aborted:'cancel'}}
   plan.push({r,act:v.act,ex})}
  // undo point before every bulk save
+ save();takeSafe0('bulk add');
  const snap=JSON.stringify(S),adds=plan.filter(p=>p.act!=='skip').length;
- try{localStorage.setItem(BF_PREV,snap);localStorage.setItem(BF_META,JSON.stringify({savedAt:Date.now(),days:dataCounts(S).days,cross:crossDayList().length,rows:adds}))}catch(e){toast('Could not keep an undo copy – nothing saved');return{saved:0,aborted:'copy'}}
+ if(!storeSafe(BF_PREV,snap,BF_META,{savedAt:Date.now(),days:dataCounts(S).days,cross:crossDayList().length,rows:adds})){toast('Could not keep an undo copy – nothing saved. Export a backup first.',true);return{saved:0,aborted:'copy'}}
  if(!S.crossDays||typeof S.crossDays!=='object')S.crossDays={};
  let n=0,nc=0;plan.forEach(p=>{if(p.act==='skip')return;const nd=bfDay(p.r),store=nd.crossShift?S.crossDays:S.days;
   if(p.act==='replace')p.ex.forEach(d=>{delete store[d.id];if(S.cur===d.id)S.cur=nd.id});
@@ -1370,8 +1663,9 @@ async function bfSave(){const rows=bfRows.slice();let bad=0;rows.forEach((r,i)=>
  save();bfRows=[];bfStage='edit';tab='days';viewDay=null;render();toastBig(`✔ Saved ${plural(n,'past shift')}${nc?` + ${nc} cross-shift`:''} · undo in Settings`);return{saved:n+nc,mine:n,cross:nc}}
 async function bfUndo(){let prev=null,meta={};try{prev=localStorage.getItem(BF_PREV);meta=JSON.parse(localStorage.getItem(BF_META)||'{}')||{}}catch(e){}if(prev==null){toast('Nothing to undo');return}
  const when=meta.savedAt?`${nice(todayStr(new Date(meta.savedAt)))} ${hm(meta.savedAt)}`:'before the last bulk add';
- if(!await ask('Undo last bulk add?',[],{ok:'Undo bulk add',danger:true,focusCancel:true,msg:`<div id="bfUndoMsg">Puts back your data from ${esc(when)}${meta.days!=null?` (${plural(meta.days,'shift')})`:''}. Anything changed since then is lost.</div>`}))return;
- try{localStorage.setItem(KEY,prev);localStorage.removeItem(BF_PREV);localStorage.removeItem(BF_META)}catch(e){toast('Undo failed');return}load();render();toastBig('↩ Bulk add undone')}
+ if(!await ask('Undo last bulk add?',[],{ok:'Undo bulk add',danger:true,focusCancel:true,msg:`<div id="bfUndoMsg">Puts back your data from ${esc(when)}${meta.days!=null?` (${plural(meta.days,'shift')})`:''}. Anything changed since then is lost.</div>`+undoOrderNote('bulk')}))return;
+ takeSafe0('undo bulk add');
+ try{localStorage.setItem(KEY,prev);clearFix();localStorage.removeItem(BF_PREV);localStorage.removeItem(BF_META)}catch(e){toast('Undo failed');return}load();render();toastBig('↩ Bulk add undone')}
 function onBfHelperAdd(el){const r=bfRows[+el.dataset.bfh];const n=String(el.value||'').trim();if(!r||!n)return;r.helpers=Array.isArray(r.helpers)?r.helpers:[];if(!r.helpers.some(x=>x.toLowerCase()===n.toLowerCase()))r.helpers.push(n);render()}
 async function crossDel(id){const d=(S.crossDays||{})[id];if(!d)return;if(!await confirmBox(`Delete ${d.driller||'cross shift'}'s ${nice(d.date)} ${d.shift} row?`))return;delete S.crossDays[id];save();render();toastBig('🗑 Cross-shift row deleted')}
 
@@ -1458,20 +1752,71 @@ function bitDismiss(k){const al=bitAlerts().find(a=>a.k===k);if(k==='slow'&&S.ru
 function onRunNow(el){if(!S.run)return;const v=num(el.value);S.run.nowDepth=v;save()}
 
 /* ===== v6: undo cards (bulk add, pre-v6 upgrade) ===== */
+function metaOf(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}}
+const whenTxt=t=>t?`${nice(todayStr(new Date(t)))} ${hm(t)}`:'?';
+function safe0Info(){let raw=null;try{raw=localStorage.getItem(SAFE0)}catch(e){}if(raw==null)return null;const m=metaOf(SAFE0_META)||{};let n=m.days;if(n==null){try{n=dataCounts(JSON.parse(raw)).days}catch(e){n=null}}return{savedAt:m.savedAt||null,days:n!=null?n:null,label:whenTxt(m.savedAt)}}
+// v6.1: each Undo confirm says when the other one-step undo exists and which order is safe (newest first). The oldest safe copy stays either way.
+function undoOrderNote(which){let hasP=false,hasB=false;try{hasP=localStorage.getItem(PREV_KEY)!=null;hasB=localStorage.getItem(BF_PREV)!=null}catch(e){}
+ const pm=metaOf(PREV_META)||{},bm=metaOf(BF_META)||{},s0=safe0Info();let t='';
+ if(which==='restore'&&hasB){t=`There is also a bulk-add undo point from ${esc(whenTxt(bm.savedAt))}. `+((bm.savedAt||0)>(pm.savedAt||0)?'The bulk add came after this restore – the safe order is: Undo last bulk add first, then Undo restore.':'The bulk add came before this restore – the safe order is: Undo restore first, then Undo last bulk add.')}
+ if(which==='bulk'&&hasP){t=`There is also a Drive restore undo point from ${esc(whenTxt(pm.savedAt))}. `+((pm.savedAt||0)>(bm.savedAt||0)?'The restore came after this bulk add – the safe order is: Undo restore first, then Undo last bulk add.':'The restore came before this bulk add – the safe order is: Undo last bulk add first, then Undo restore.')}
+ if(!t)return '';return `<div class="warn" id="undoOrder" style="margin-top:8px">⚠ ${t}${s0?` Your oldest safe copy from ${esc(s0.label)}${s0.days!=null?` (${plural(s0.days,'shift')})`:''} is kept either way (Settings → Restore oldest safe copy).`:''}</div>`}
+function safe0Card(){return safe0CardMain()+curUndoCard(SAFE0_CUR,'safe0Undo','Undo restore of safe copy','Undo restore of safe copy')+curUndoCard(PRE6_CUR,'pre6CurUndo','Undo pre-v6 restore','Undo pre-v6 restore')+curUndoCard(IMP_CUR,'impUndo','Undo last import','Undo import')}
+const CUR_WHAT={[SAFE0_CUR]:'restore of safe copy',[PRE6_CUR]:'pre-v6 restore',[IMP_CUR]:'import'};
+function safe0CardMain(){const s0=safe0Info();if(!s0)return '';
+ return `<div class="card" id="safe0Card"><h3>Oldest safe copy</h3><p class="mut sm" id="safe0Info">Your phone data from ${esc(s0.label)}${s0.days!=null?` (${plural(s0.days,'shift')})`:''}, before the first restore / bulk add. Undo and restore never overwrite it.</p>
+ <button class="btn ghost" data-a="safe0Restore" id="safe0Restore">↩ Restore oldest safe copy</button><button class="btn ghost" data-a="safe0Clear" id="safe0Clear">✔ I'm happy, clear safety copy</button></div>`}
+async function safe0Restore(){let raw=null;try{raw=localStorage.getItem(SAFE0)}catch(e){}if(raw==null){toast('No safe copy');return}const s0=safe0Info();
+ if(curCopy(SAFE0_CUR)){toast('Undo or Keep the last safe-copy restore first – nothing changed.',true);return} // QA3: never overwrite ffdt.safe0.cur
+ if(!await ask('Restore oldest safe copy?',[],{ok:'Restore safe copy',danger:true,focusCancel:true,msg:`<div id="safe0Msg">Puts back your phone data from ${esc(s0.label)}${s0.days!=null?` (${plural(s0.days,'shift')})`:''}. Everything added or changed since then is replaced. Your current data is kept as one copy.</div>`}))return;
+ let cur=null;try{cur=localStorage.getItem(KEY)}catch(e){}
+ if(cur!=null&&cur!==raw&&!storeSafe(SAFE0_CUR,cur,SAFE0_CUR+'.meta',curMeta(cur))){toast('Could not keep a copy of current data – nothing restored. Export a backup first.',true);render();return}
+ try{localStorage.setItem(KEY,raw);clearFix()}catch(e){toast('Restore failed: '+(isQuota(e)?'phone storage is full. Export a backup first.':e.message),true);return}
+ load();render();toast('↩ Restored the oldest safe copy',true)}
+async function safe0Clear(){if(!safe0Info()){toast('No safe copy');return}const c=curCopy(SAFE0_CUR);
+ const v=await ask("I'm happy – clear the safety copy?",c?[{k:'alsoCur',l:`Also delete the copy of your data from before "Restore oldest safe copy" (${c.label}${c.days!=null?', '+plural(c.days,'shift'):''})`,t:'check'}]:[],{ok:'Clear safety copy',danger:true,focusCancel:true,focus:false,
+  msg:'The oldest safe copy is deleted. Your current data is not changed.'+(c?' The copy from before the safe-copy restore is KEPT unless you tick the box.':'')});if(!v)return;
+ [SAFE0,SAFE0_META].concat(c&&v.alsoCur?[SAFE0_CUR,SAFE0_CUR+'.meta']:[]).forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});render();toast('✔ Safety copy cleared',true)}
+// QA3: ffdt.safe0.cur / ffdt.pre6.cur (data from just before a restore) can be put back
+function curMeta(raw){let n=null;try{n=dataCounts(JSON.parse(raw)).days}catch(e){}return{savedAt:Date.now(),days:n}}
+function curCopy(key){let raw=null;try{raw=localStorage.getItem(key)}catch(e){}if(raw==null)return null;const m=metaOf(key+'.meta')||{};let n=m.days;if(n==null){try{n=dataCounts(JSON.parse(raw)).days}catch(e){n=null}}return{raw,savedAt:m.savedAt||null,days:n,label:m.savedAt?whenTxt(m.savedAt):'before the restore'}}
+function curUndoCard(key,id,title,btn){const c=curCopy(key);if(!c)return '';
+ return `<div class="card" id="${id}Card"><h3>${title}</h3><p class="mut sm" id="${id}Info">Your data from just before the ${key===IMP_CUR?'import':'restore'} – ${esc(c.label)}${c.days!=null?` (${plural(c.days,'shift')})`:''}.</p><div class="row"><button class="btn ghost" data-a="curUndo" data-v="${key}" id="${id}">↩ ${btn}</button><button class="btn ghost" data-a="curKeep" data-v="${key}" id="${id}Keep">✔ Keep</button></div></div>`}
+async function curKeep(el){const key=el.dataset.v;if(!CUR_WHAT[key])return;const c=curCopy(key);if(!c)return;
+ if(!await ask(`Keep the data after the ${CUR_WHAT[key]}?`,[],{ok:'Keep – delete the copy',danger:true,focusCancel:true,msg:`<div id="curKeepMsg">Deletes the copy of your data from ${esc(c.label)}${c.days!=null?` (${plural(c.days,'shift')})`:''}. Undo will no longer be possible.</div>`}))return;
+ [key,key+'.meta'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});render();toastBig('✔ Kept')}
+async function curUndo(el){const key=el.dataset.v;if(!CUR_WHAT[key])return;const c=curCopy(key);if(!c){toast('Nothing to undo');return}
+ const what=CUR_WHAT[key];
+ if(!await ask(`Undo ${what}?`,[],{ok:key===IMP_CUR?'Undo import':'Undo restore',danger:true,focusCancel:true,msg:`<div id="curUndoMsg">Puts back your data from ${esc(c.label)}${c.days!=null?` (${plural(c.days,'shift')})`:''}, just before the ${key===IMP_CUR?'import':'restore'}. Anything added since then is replaced.</div>`}))return;
+ takeSafe0('undo '+what);
+ try{localStorage.setItem(KEY,c.raw);clearFix()}catch(e){toast('Undo failed: '+(isQuota(e)?'phone storage is full. Export a backup first.':e.message),true);return}
+ [key,key+'.meta'].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});load();render();toastBig(key===IMP_CUR?'↩ Undone – data from before the import is back':'↩ Undone – data from before the restore is back')}
 function undoCards(){let bf=null,bm={},p6=null,pm={};try{bf=localStorage.getItem(BF_PREV);bm=JSON.parse(localStorage.getItem(BF_META)||'{}')||{};p6=localStorage.getItem(PRE6_KEY);pm=JSON.parse(localStorage.getItem(PRE6_META)||'{}')||{}}catch(e){}
  const when=t=>t?`${nice(todayStr(new Date(t)))} ${hm(t)}`:'?';
- return (bf!=null?`<div class="card" id="bfUndoCard"><h3>Undo last bulk add</h3><p class="mut sm">Undo point from ${esc(when(bm.savedAt))}${bm.days!=null?` (${plural(bm.days,'shift')})`:''}.</p><button class="btn ghost" data-a="bfUndo" id="bfUndoS">↩ Undo last bulk add</button></div>`:'')
+ return safe0Card()+(bf!=null?`<div class="card" id="bfUndoCard"><h3>Undo last bulk add</h3><p class="mut sm">Undo point from ${esc(when(bm.savedAt))}${bm.days!=null?` (${plural(bm.days,'shift')})`:''}.</p><button class="btn ghost" data-a="bfUndo" id="bfUndoS">↩ Undo last bulk add</button></div>`:'')
   +(p6!=null?`<div class="card" id="pre6Card"><h3>Data from before v6</h3><p class="mut sm" id="pre6Info">Saved ${esc(when(pm.savedAt))}${pm.days!=null?` (${plural(pm.days,'shift')})`:''}${pm.fromV?`, from v${pm.fromV}`:''}.</p><button class="btn ghost" data-a="pre6Undo" id="pre6Undo">↩ Restore data from before v6</button></div>`:'')}
 async function pre6Undo(){let raw=null,pm={};try{raw=localStorage.getItem(PRE6_KEY);pm=JSON.parse(localStorage.getItem(PRE6_META)||'{}')||{}}catch(e){}if(raw==null){toast('Nothing to restore');return}
+ if(curCopy(PRE6_CUR)){toast('Undo or Keep the last pre-v6 restore first – nothing changed.',true);return} // QA3: never overwrite ffdt.pre6.cur
  const when=pm.savedAt?`${nice(todayStr(new Date(pm.savedAt)))} ${hm(pm.savedAt)}`:'before the upgrade';
  if(!await ask('Restore data from before v6?',[],{ok:'Restore old data',danger:true,focusCancel:true,msg:`<div id="pre6Msg">Puts back the data saved ${esc(when)}${pm.days!=null?` (${plural(pm.days,'shift')})`:''}, before the v6 upgrade. Everything added or changed since then is replaced. Your current data is kept as one safety copy.</div>`}))return;
- try{const cur=localStorage.getItem(KEY);if(cur!=null)localStorage.setItem(PRE6_CUR,cur);localStorage.setItem(KEY,raw)}catch(e){toast('Restore failed');return}
+ takeSafe0('pre-v6 restore');let cur=null;try{cur=localStorage.getItem(KEY)}catch(e){}
+ // QA1: the current data must really be in ffdt.pre6.cur before anything is replaced – the oldest safe copy is NOT enough (it is older)
+ if(cur!=null&&!storeSafe(PRE6_CUR,cur,PRE6_CUR+'.meta',curMeta(cur))){toast('⚠ Restore cancelled – could not keep a copy of your current data (phone storage full?). Nothing changed. Export a backup first.',true);render();return}
+ try{localStorage.setItem(KEY,raw);clearFix()}catch(e){toast('Restore failed: '+(isQuota(e)?'phone storage is full. Export a backup first.':e.message),true);return}
  load();render();toastBig('↩ Restored data from before v6')}
-function onBf(el,isChange){const [i,k]=el.dataset.bf.split('.');const r=bfRows[+i];if(!r)return;r[k]=el.value;if(isChange&&(k==='driller'||k==='shift')){render();return}if(isChange){const box=document.getElementById('bfMsg'+i);if(box)box.innerHTML=bfMsgHtml(+i)}}
+function onBf(el,isChange){const [i,k]=el.dataset.bf.split('.');const r=bfRows[+i];if(!r)return;r[k]=el.value;
+ if(k==='counted'){const a=bfAuto(r);r.countedEdited=String(el.value).trim()!==''&&!(a!=null&&num(el.value)===a);if(isChange){render();return}}
+ if((k==='from'||k==='to')&&!r.countedEdited){const a=bfAuto(r);r.counted=a==null?'':String(a);const ce=document.querySelector(`[data-bf="${i}.counted"]`);if(ce)ce.value=r.counted}
+ if(!isChange&&(k==='from'||k==='to'||k==='counted'||k==='dirH'||k==='hrs')){const ce=document.getElementById('bfCalc'+i);if(ce){const bad=bfRangeBad(r);ce.hidden=bad;ce.textContent=bad?'':bfCalcTxt(r)}}
+ if(isChange&&(k==='driller'||k==='shift'||k==='from'||k==='to'||k==='dirH')){render();return}if(isChange){const box=document.getElementById('bfMsg'+i);if(box)box.innerHTML=bfMsgHtml(+i)}}
 
 /* ===== Events ===== */
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const f=A[el.dataset.a];if(f){e.preventDefault();Promise.resolve(f(el)).catch(err=>toast('Error: '+err.message))}});
+const HRS_B=['travel','preop','dir','cross.dir'],HRS_SB=['travel','preop','shiftLen']; // typed hours boxes on the Shift tab / Settings
 function onBound(el,isChange){
+ const hp=el.dataset.b!=null?(HRS_B.includes(el.dataset.b)?el.dataset.b:null):(HRS_SB.includes(el.dataset.sb)?el.dataset.sb:null);
+ if(hp&&badHrs(elVal(el))){el.classList.add('bad');if(isChange){toast(HRS_MSG+' – not saved',true);const o=el.dataset.b!=null?D():S.settings;const cur=o?hp.split('.').reduce((x,k)=>x==null?x:x[k],o):null;el.value=cur==null?'':cur;el.classList.remove('bad')}return}
+ if(hp)el.classList.remove('bad');
  if(el.dataset.b!=null){const d=D();if(!d)return;setPath(d,el.dataset.b,elVal(el));
   if(el.dataset.b==='startDepth'&&!(d.runs||[]).length)d.curDepth=null;
   save();updDerived()}
@@ -1485,12 +1830,16 @@ function updDerived(){const d=D();if(!d)return;const c=d.cross||{},set=(id,t)=>{
 function applyImport(data,mode){
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:{};
  if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.crossDays&&typeof data.crossDays==='object')S.crossDays=Object.assign({},S.crossDays||{},data.crossDays);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur}
- if(S){delete S._corrupt;S.settings=Object.assign({},S.settings||{},keep)}loadError=null;save();load();save();render()}
+ if(S){delete S._corrupt;S.settings=Object.assign({},S.settings||{},keep)}loadError=null;clearFix();save();load();save();render()} // QA62-4: an import never brings back (or keeps) a fix undo
 $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;const text=await file.text();let data;try{data=JSON.parse(text)}catch(err){toast('Not a valid backup file');return}
  if(data&&data.app==='drill-tracker'&&data.data&&data.data.days)data=data.data; // a Drive backup file also imports
  if(!data||!data.days){toast('Not a Drill Tracker backup');return}
  const v=await ask('Import backup',[{k:'mode',l:'How?',t:'select',v:'merge',o:[['merge','Merge (keep mine, add / overwrite matching days)'],['replace','Replace everything on this phone']]}],{ok:'Import',msg:`${plural(Object.keys(data.days).length,'shift')} in file.`,focus:false});
- if(!v)return;if(v.mode==='replace'&&!await confirmBox('Replace ALL data on this phone?','Replace'))return;
+ if(!v)return;if(curCopy(IMP_CUR)){toast('Undo or Keep the last import first – nothing changed.',true);return} // QA-R5: never overwrite the copy
+ if(v.mode==='replace'&&!await confirmBox('Replace ALL data on this phone? A copy of your current data is kept – Undo import puts it back.','Replace'))return;
+ if(!takeSafe0('import')){toast('⚠ Import cancelled – could not keep a safety copy of your data (phone storage full?). Nothing changed. Export a backup first.',true);return} // QA9
+ {let cur=null;try{cur=localStorage.getItem(KEY)}catch(e){}if(cur==null&&S&&!S._corrupt&&Object.keys(S.days||{}).length)cur=JSON.stringify(S);
+  if(cur!=null&&safe0Valid(cur)&&!storeSafe(IMP_CUR,cur,IMP_CUR+'.meta',Object.assign(curMeta(cur),{mode:v.mode}))){toast('⚠ Import cancelled – could not keep a copy of your current data (phone storage full?). Nothing changed. Export a backup first.',true);render();return}}
  applyImport(data,v.mode);toastBig('✔ Imported')});
 setInterval(()=>{if(!$('#modal').hidden)return;const act=document.activeElement;const typing=act&&/INPUT|TEXTAREA|SELECT/.test(act.tagName);
  if((tab==='timer'||tab==='log')&&(S.run||runningActs().length)&&!typing)render();else renderHeader()},1000);
@@ -1506,7 +1855,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 }
 
 load();render();wake();
-window.App={S:()=>S,A,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+window.App={S:()=>S,A,exportData,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
 </script>
 </body>
 </html>
