@@ -37,6 +37,7 @@ textarea{min-height:90px;font-size:17px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amb)}
 label.chk{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--tx);min-height:58px}
 label.chk input{width:30px;height:30px;min-height:0;margin:0;flex:none}
+label.chk.big{font-size:20px;font-weight:800;min-height:72px}label.chk.big input{width:58px;height:58px}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
 .btn{display:block;width:100%;border:0;border-radius:12px;padding:14px 10px;min-height:58px;font-size:18px;font-weight:800;color:#111;background:var(--amb);margin:0 0 10px;cursor:pointer}
@@ -295,6 +296,8 @@ function load(){
   if('fixUndo' in S)delete S.fixUndo; // v6.1 QA62-7: the fix undo lives in ffdt.fixundo now; an r2 test build kept it here – dropped (in memory only, never rewrites old data)
 
   if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){storeWarn='⚠ Phone storage is full – the upgraded data is not saved yet (your old data is untouched). Export a backup now (Settings → Export backup).'}}
+  // v6.3: oil change log – default when missing (in memory only; it is stored with the next save, so old data stays byte-identical on load)
+  if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};else{if(!Array.isArray(S.maint.log))S.maint.log=[];if(!('dismissed' in S.maint))S.maint.dismissed=null}
  }catch(e){
   try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){storeWarn=STORE_FULL}
   loadError="Saved data couldn't be read, restore a backup";
@@ -312,10 +315,12 @@ function load(){
 const SAFETY_DROP=()=>[[FIX_KEY,FIX_KEY+'.meta'],[PRE6_KEY,PRE6_META],[BF_PREV,BF_META],[PREV_KEY,PREV_META],[PRE6_CUR,PRE6_CUR+'.meta'],[SAFE0_CUR,SAFE0_CUR+'.meta'],[IMP_CUR,IMP_CUR+'.meta'],[SAFE0,SAFE0_META]];
 function canonJ(o){if(Array.isArray(o))return '['+o.map(canonJ).join(',')+']';if(o&&typeof o==='object')return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+canonJ(o[k])).join(',')+'}';return JSON.stringify(o===undefined?null:o)}
 function shiftMap(src){try{const o=typeof src==='string'?JSON.parse(src):src;if(!o||typeof o!=='object'||!o.days||typeof o.days!=='object')return null;const m=new Map();
- [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(d))});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);return m}catch(e){return null}}
+ [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(d))});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);m.maint_=new Set((o.maint&&Array.isArray(o.maint.log)?o.maint.log:[]).map(canonJ));return m}catch(e){return null}}
 // QA r2 nit 1: a copy is "covered" only if its shifts AND its settings AND its live run are also in ffdt.v1 or another kept copy
 function shiftsCovered(m,others){if(!m)return false;for(const[k,set]of m)for(const c of set)if(!others.some(o=>o&&o.has(k)&&o.get(k).has(c)))return false;
- if(!others.some(o=>o&&o.set_===m.set_))return false;if(m.run_!=='null'&&!others.some(o=>o&&o.run_===m.run_))return false;return true}
+ if(!others.some(o=>o&&o.set_===m.set_))return false;if(m.run_!=='null'&&!others.some(o=>o&&o.run_===m.run_))return false;
+ for(const e of m.maint_||[])if(!others.some(o=>o&&o.maint_&&o.maint_.has(e)))return false; // v6.3: a copy with oil changes found nowhere else is kept
+ return true}
 function metaAt(k){try{const m=JSON.parse(localStorage.getItem(k)||'null');return m&&+m.savedAt||0}catch(e){return 0}}
 function pickDrop(kept,v1m){const fx=kept.find(c=>c.ks[0]===FIX_KEY);if(fx)return fx; // QA62-7: the fix undo is the least important – always first
  for(const c of kept){if(shiftsCovered(c.map,[v1m,...kept.filter(x=>x!==c).map(x=>x.map)]))return c}
@@ -541,13 +546,13 @@ function paceCalc(d,now=Date.now()){const soFar=mineCalc(d).drill,t0=shiftStartM
  const tg=+S.settings.paceTarget>0?+S.settings.paceTarget:null;return{soFar:r2(soFar),elapsedH:el,rate:rate==null?null:r2(rate),leftH:left,proj,target:tg,diff:tg!=null&&proj!=null?r2(proj-tg):null}}
 function runningActs(){const out=[];allDays().forEach(d=>(d.acts||[]).forEach(a=>{if(a&&!a.e&&a.hrs==null)out.push({d,a})}));return out}
 /* ===== UI helpers ===== */
-function toast(m,big){const t=$('#toast');t.textContent=m;t.className=big?'big':'';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>{t.style.display='none';t.className=''},big?4500:2200)}
+function toast(m,big,ms){const t=$('#toast');t.textContent=m;t.className=big?'big':'';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>{t.style.display='none';t.className=''},ms||(big?4500:2200))}
 const toastBig=m=>toast(m,true);
 function corruptBanner(){return `<div class="warn" id="loadErr">${esc(loadError)}. A copy was saved as a backup. Use Import backup to restore — the original data was not overwritten.</div><button class="btn" data-a="importJSON">⬆ Import backup</button>`}
 const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(35)}catch(e){}};
 function fieldHtml(f){
  const v=f.v??'';
- if(f.t==='check')return `<label class="chk"><input type="checkbox" name="${f.k}" ${f.v?'checked':''}> ${esc(f.l)}</label>`;
+ if(f.t==='check')return `<label class="chk${f.cls?' '+f.cls:''}"><input type="checkbox" name="${f.k}" ${f.v?'checked':''}> ${esc(f.l)}</label>`;
  if(f.t==='select')return `<label>${esc(f.l)}<select name="${f.k}">${f.o.map(o=>{const[val,lab]=Array.isArray(o)?o:[o,o];return `<option value="${esc(val)}" ${String(val)===String(f.v)?'selected':''}>${esc(lab)}</option>`}).join('')}</select></label>`;
  if(f.t==='textarea')return `<label>${esc(f.l)}<textarea name="${f.k}" rows="3">${esc(v)}</textarea></label>`;
  const type=f.t==='num'?'number':f.t==='date'?'date':'text';
@@ -583,13 +588,60 @@ function inp(path,label,t='text',o){ // bound to current day (data-b) or setting
 }
 function elVal(el){if(el.type==='checkbox')return el.checked;if(el.dataset.t==='num')return num(el.value);return el.value}
 
+/* ===== v6.3: Oil change / weekly maintenance =====
+ Leo: "a button for oil changes – drill, pump shack and motor date changed – and a checkmark, once a week on Sundays".
+ S.maint={log:[{id,item:'drill'|'pump'|'motor',date:'YYYY-MM-DD',note,savedAt}],dismissed:'YYYY-MM-DD'|null}.
+ A week runs Sunday→Saturday; an entry belongs to the week that contains its date. This week's checkmarks are read from the log
+ (no stored flag that could drift), so they reset by themselves each Sunday. "Today" is the app's work date (workDate: a night
+ shift keeps its start date until the 08:00 cut-off), so a Sunday night shift sees the reminder all night, also after midnight.
+ Not on the printed / shared report. */
+const MAINT_IT=[['drill','Drill'],['pump','Pump shack'],['motor','Motor']],MAINT_N=Object.fromEntries(MAINT_IT);
+const isYmd=s=>typeof s==='string'&&/^\d{4}-\d\d-\d\d$/.test(s)&&!isNaN(parseD(s));
+const weekStart=s=>addDays(s,-parseD(s).getDay()); // the Sunday of that week
+const mLog=()=>(S&&S.maint&&Array.isArray(S.maint.log)?S.maint.log:[]).filter(e=>e&&typeof e==='object'&&MAINT_N[e.item]&&isYmd(e.date));
+function maintWeek(ws){const o={};mLog().forEach(e=>{if(weekStart(e.date)!==ws)return;const p=o[e.item];if(!p||(+e.savedAt||0)>=(+p.savedAt||0))o[e.item]=e});return o}
+const maintDone=ws=>{const w=maintWeek(ws);return MAINT_IT.every(([k])=>w[k])};
+const maintSort=(a,b)=>b.date.localeCompare(a.date)||(+b.savedAt||0)-(+a.savedAt||0);
+const maintLast=k=>mLog().filter(e=>e.item===k).sort(maintSort)[0]||null;
+const mDay=s=>{const d=parseD(s);return `${MON[d.getMonth()]} ${d.getDate()}`};
+const agoTxt=(s,today)=>{const n=Math.round((parseD(today)-parseD(s))/864e5);return n===0?'today':n===1?'1 day ago':n>0?`${n} days ago`:`in ${-n} day${n===-1?'':'s'}`};
+function maintEnsure(){if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};if(!Array.isArray(S.maint.log))S.maint.log=[];return S.maint}
+let maintHistOpen=false,maintFilter='all';
+function maintBanner(){try{const wd=workDate();if(parseD(wd).getDay()!==0)return '';const ws=weekStart(wd);if(maintDone(ws)||(S.maint&&S.maint.dismissed===wd))return '';const w=maintWeek(ws);
+ return `<div class="warn" id="maintBanner" style="padding:10px"><button class="btn glove" data-a="maintOpen" id="maintBannerBtn" style="margin:0 0 8px">🛢 Sunday oil change: ${MAINT_IT.map(([k,n])=>`${n} ${w[k]?'☑':'☐'}`).join(' ')}</button><button class="btn ghost" data-a="maintDismiss" id="maintDismiss" style="margin:0">Not today</button></div>`}catch(e){return ''}}
+function maintHistHtml(today){const rows=mLog().filter(e=>maintFilter==='all'||e.item===maintFilter).sort(maintSort);
+ return `<div class="row" id="maintFilters" style="flex-wrap:wrap;margin:8px 0">${[['all','All'],...MAINT_IT].map(([k,n])=>`<button class="btn ${maintFilter===k?'':'ghost'} sm" data-a="maintF" data-v="${k}" id="maintF_${k}" style="flex:1">${esc(n)}</button>`).join('')}</div>
+ <div id="maintHist">${rows.length?rows.map(e=>`<div class="li maintRow" data-id="${esc(e.id)}"><div class="x"><b>${esc(MAINT_N[e.item])} · ${esc(nice(e.date))}</b><span class="mut sm">${esc(agoTxt(e.date,today))}${e.note?' · '+esc(e.note):''}</span></div><button class="btn ghost" data-a="maintDel" data-v="${esc(e.id)}" aria-label="Delete">✕</button></div>`).join(''):'<p class="mut">No oil changes saved yet.</p>'}</div>`}
+function maintCard(){const wd=workDate(),ws=weekStart(wd),w=maintWeek(ws);
+ return `<div class="card" id="maintCard"><h2>🛢 Oil change · weekly (Sundays)</h2>
+ <button class="btn glove" data-a="maintOpen" id="maintBtn">🛢 Oil change</button>
+ <p class="sm" id="maintWeek">This week ${esc(mDay(ws))}–${esc(mDay(addDays(ws,6)))}: ${MAINT_IT.map(([k,n])=>`${esc(n)} ${w[k]?'☑':'☐'}`).join(' · ')}</p>
+ <div id="maintLast">${MAINT_IT.map(([k,n])=>{const e=maintLast(k);return `<div class="kv"><span>${esc(n)}: ${e?`last changed ${esc(mDay(e.date))} (${esc(agoTxt(e.date,wd))})`:'no change saved yet'}</span></div>`}).join('')}</div>
+ <button class="btn ghost" data-a="maintHist" id="maintHistBtn" style="margin-top:8px">${maintHistOpen?'Hide history':'📜 History'}</button>
+ ${maintHistOpen?maintHistHtml(wd):''}</div>`}
+async function maintOpen(){buzz();const wd=workDate(),ws=weekStart(wd),w=maintWeek(ws),fields=[];
+ MAINT_IT.forEach(([k,n])=>{const e=w[k];fields.push({k:'c_'+k,l:'✔ '+n+' changed',t:'check',v:!!e,cls:'big'},{k:'d_'+k,l:`${n}: date changed`,t:'date',v:e?e.date:wd},{k:'n_'+k,l:`${n}: note (oil used, hour meter) – optional`,t:'text',v:e?String(e.note||''):''})});
+ const v=await ask('🛢 Oil change',fields,{ok:'Save',focus:false,msg:`<div id="maintSheetInfo">Week ${esc(mDay(ws))}–${esc(mDay(addDays(ws,6)))} (Sun–Sat). Tick what you changed.</div>`});if(!v)return;
+ const maxD=[wd,todayStr(new Date(Date.now()))].sort().pop();
+ for(const[k,n]of MAINT_IT)if(v['c_'+k]){const d=String(v['d_'+k]||'').trim();if(!isYmd(d)){toast(`Enter the date the ${n} oil was changed – nothing saved`,true);return}if(d>maxD){toast(`${n}: the date can't be in the future – nothing saved`,true);return}}
+ const rm=MAINT_IT.filter(([k])=>!v['c_'+k]&&w[k]);let doRm=true;
+ if(rm.length)doRm=!!await ask('Remove this week\'s check?',[],{ok:'Remove',danger:true,focusCancel:true,msg:`<div id="maintRmMsg">Deletes the saved oil change for ${rm.map(([k,n])=>`${esc(n)} (${esc(nice(w[k].date))})`).join(', ')}. The others are saved either way.</div>`});
+ const M=maintEnsure(),now=Date.now();let n=0;
+ MAINT_IT.forEach(([k])=>{if(!v['c_'+k])return;const d=String(v['d_'+k]).trim(),note=String(v['n_'+k]||'').trim(),e=w[k];
+  if(e){if(e.date!==d||String(e.note||'')!==note){e.date=d;e.note=note;e.savedAt=now;n++}}else{M.log.push({id:uid(),item:k,date:d,note,savedAt:now});n++}});
+ if(doRm)rm.forEach(([k])=>{const i=M.log.indexOf(w[k]);if(i>=0){M.log.splice(i,1);n++}});
+ if(!n){toast('Nothing changed');render();return}
+ save();render();toast('✔ Oil change saved'+(maintDone(weekStart(workDate()))?' – all 3 done this week':''))}
+async function maintDel(id){const M=maintEnsure(),e=M.log.find(x=>x&&String(x.id)===String(id));if(!e)return;
+ if(!await ask('Delete this oil change?',[],{ok:'Delete',danger:true,focusCancel:true,msg:`<div id="maintDelMsg">${esc(MAINT_N[e.item]||e.item)} · ${esc(nice(e.date))}${e.note?' · '+esc(e.note):''}</div>`}))return;
+ const i=M.log.indexOf(e);if(i>=0)M.log.splice(i,1);save();render();toast('Deleted')}
 /* ===== Views ===== */
 const TABS=[['shift','🗓','Shift'],['timer','⏱','Timer'],['log','🔧','Log'],['report','📋','Report'],['days','📚','Days'],['totals','Σ','Totals'],['sched','📅','Hitch']];
 function render(){
  if(!$('#modal').hidden)return;
  $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
  const V={shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
- $('#main').innerHTML=(loadError?corruptBanner():'')+(storeWarn?`<div class="warn" id="storeWarn"><b>${esc(storeWarn)}</b><div class="row" style="margin-top:8px"><button class="btn" data-a="exportJSON">⬇ Export backup</button><button class="btn ghost" data-a="storeWarnOk" id="storeWarnOk">✔ Got it</button></div></div>`:'')+drivePendingBanner()+V();
+ $('#main').innerHTML=(loadError?corruptBanner():'')+(storeWarn?`<div class="warn" id="storeWarn"><b>${esc(storeWarn)}</b><div class="row" style="margin-top:8px"><button class="btn" data-a="exportJSON">⬇ Export backup</button><button class="btn ghost" data-a="storeWarnOk" id="storeWarnOk">✔ Got it</button></div></div>`:'')+drivePendingBanner()+maintBanner()+V();
  renderHeader();
 }
 function renderHeader(){
@@ -642,9 +694,9 @@ function wrapHtml(d){const w=wrapData(d);
 function needDay(){return `<div class="card c"><h2>No shift open</h2><p class="mut">Start your shift to begin logging.</p><button class="btn huge" data-a="newShift">▶ Start new shift</button></div>`}
 
 function vShift(){
- const d=D();if(!d)return needDay()+recentCard();
+ const d=D();if(!d)return needDay()+maintCard()+recentCard();
  const c=d.cross||{},mc=mineCalc(d);
- return `
+ return maintCard()+`
  <div class="card"><h2>My shift</h2>
   <div class="g2">${inp('date','Date','date')}${inp('shift','Day / Night','select',{opts:['Night','Day']})}</div>
   <div class="g2">${inp('job','Job No','text',{ph:'NexGen'})}${inp('hole','Hole No','text',{ph:'RK-26-306-C1'})}</div>
@@ -1103,6 +1155,8 @@ const A={
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
+ maintOpen(){return maintOpen()},maintDismiss(){const M=maintEnsure();M.dismissed=workDate();save();render();toast('Oil change reminder hidden for today')},
+ maintHist(){maintHistOpen=!maintHistOpen;render()},maintF(el){maintFilter=el.dataset.v||'all';maintHistOpen=true;render()},maintDel(el){return maintDel(el.dataset.v)},
  makeCur(el){if(S.cur!==el.dataset.v)clearFix();S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
  async delDay(el){const id=el.dataset.v;if(S.run&&S.run.dayId===id){toast('Finish the running run first');return}
   if(await confirmBox(`Delete shift ${nice(S.days[id].date)}? This cannot be undone.`)){delete S.days[id];if(S.cur===id)S.cur=null;viewDay=null;save()}render()},
@@ -1240,7 +1294,7 @@ function fixCommit(u0,label){const d=S.days[u0.dayId],live=runJ();
  if(!ok){fixApply(u,d);render();toast('⚠ Phone storage is full – nothing changed (no room to keep the Undo). Export a backup (Settings → Export backup).',true);return}
  if(!save()){clearFix();fixApply(u,d);render();return}
  render();if(getFix())toastBig('✔ Fixed: '+label+' · Undo fix is on the Log tab');
- else toast('✔ Fixed: '+label+' · ⚠ No undo kept – phone storage was full. Export a backup now (Settings → Export backup).',true)} // v6.2 QA64-3: the undo key may have been dropped to fit ffdt.v1
+ else toast('⚠ Fixed: '+label+' · No undo kept – phone storage was full. Export a backup now (Settings → Export backup).',true,8000)} // v6.3 QA65-2: big toast, on screen longer than the success one // v6.2 QA64-3: the undo key may have been dropped to fit ffdt.v1
 // put the touched entries back (before state); untouched entries stay as they are
 function fixApply(u,d){const put=(arr,m)=>{Object.entries(m).sort((x,y)=>x[1][2]-y[1][2]).forEach(([id,[b]])=>{const i=arr.findIndex(x=>x&&String(x.id)===String(id));if(i>=0)arr.splice(i,1)});
   Object.entries(m).filter(([,v])=>v[0]!=null).sort((x,y)=>x[1][2]-y[1][2]).forEach(([,[b,,bi]])=>arr.splice(Math.min(bi,arr.length),0,JSON.parse(b)))};
@@ -1283,12 +1337,13 @@ function depthBad(from,to,zeroOk){if(from==null||to==null)return null;if(to<from
 const restState=rest=>{const l=rest[rest.length-1];return l&&l.e==null&&l.k==='p'?'now paused':'running'};
 // v6.2 QA64-1: preview text for OTHER timers the fix changes (behaviour unchanged): timers held by the fixed Water/Breakdown that restart at T,
 // a running core run that the new activity pauses from T, and running activities that a new Water/Breakdown pauses from T.
-function fixThirds(a,T,now,nx,r,runPaused){const N=x=>ACTS[x.type]?.n||x.type,brk=nx==='breakdown'||nx==='water',gap=now-T,out=[];if(gap<1000)return out;
+function fixThirds(a,T,now,nx,r,runPaused){const N=x=>ACTS[x.type]?.n||x.type,brk=nx==='breakdown'||nx==='water',gap=now-T,out=[],nw=gap<1000; // v6.3 QA65-1: fix = the full timed time → they change "now"
+ const at=(verb,sign,extra='')=>nw?` ${verb} now`:` ${verb} ${verb==='resumes'?'at':'from'} ${hm(T)} (${sign}${fixDur(gap)}${extra})`;
  runningActs().forEach(({a:x})=>{if(x===a)return;const paused=isActPaused(x);
   const byA=!!(a&&paused&&(Array.isArray(x.pausedBy)?x.pausedBy.includes(a.id)&&x.pausedBy.length===1:(a.resumeActs||[]).includes(x.id)));
-  if(byA&&!brk)out.push(`${N(x)} resumes at ${hm(T)} (+${fixDur(gap)})`);
-  else if(!paused&&brk)out.push(`${N(x)} pauses from ${hm(T)} (−${fixDur(gap)})`)});
- if(a&&nx!=='run'&&r&&!runPaused)out.push(`core run pauses from ${hm(T)} (−${fixDur(gap)} coring)`);
+  if(byA&&!brk)out.push(N(x)+at('resumes','+'));
+  else if(!paused&&brk)out.push(N(x)+at('pauses','−'))});
+ if(a&&nx!=='run'&&r&&!runPaused)out.push('core run'+at('pauses','−',' coring'));
  return out}
 const thirdTxt=t=>t.length?' · '+t.join(' · '):'';
 async function fixLive(kind,id){buzz();const now=Date.now();
@@ -1850,7 +1905,8 @@ function updDerived(){const d=D();if(!d)return;const c=d.cross||{},set=(id,t)=>{
 // The one import path: used by Import backup (file) and Restore from Google Drive. save → load() (runs migrations) → save.
 function applyImport(data,mode){
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:{};
- if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.crossDays&&typeof data.crossDays==='object')S.crossDays=Object.assign({},S.crossDays||{},data.crossDays);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur}
+ if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.crossDays&&typeof data.crossDays==='object')S.crossDays=Object.assign({},S.crossDays||{},data.crossDays);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur;
+  if(data.maint&&Array.isArray(data.maint.log)){const M=maintEnsure();data.maint.log.forEach(e=>{if(!e||typeof e!=='object')return;const i=M.log.findIndex(x=>x&&e.id!=null&&String(x.id)===String(e.id));if(i>=0)M.log[i]=e;else M.log.push(e)})}} // v6.3: merge adds / overwrites oil changes by id
  if(S){delete S._corrupt;S.settings=Object.assign({},S.settings||{},keep)}loadError=null;clearFix();save();load();save();render()} // QA62-4: an import never brings back (or keeps) a fix undo
 $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;const text=await file.text();let data;try{data=JSON.parse(text)}catch(err){toast('Not a valid backup file');return}
  if(data&&data.app==='drill-tracker'&&data.data&&data.data.days)data=data.data; // a Drive backup file also imports
@@ -1876,7 +1932,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 }
 
 load();render();wake();
-window.App={S:()=>S,A,exportData,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+window.App={S:()=>S,A,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
 </script>
 </body>
 </html>
