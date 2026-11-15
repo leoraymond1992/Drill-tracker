@@ -35,7 +35,7 @@ label{display:block;font-size:14px;color:var(--mut);margin:0 0 10px}
 input,select,textarea{display:block;width:100%;margin-top:4px;background:#0d1014;color:var(--tx);border:2px solid var(--line);border-radius:10px;padding:12px;font-size:19px;min-height:58px}
 textarea{min-height:90px;font-size:17px}
 input:focus,select:focus,textarea:focus{outline:none;border-color:var(--amb)}
-label.chk{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--tx);min-height:52px}
+label.chk{display:flex;align-items:center;gap:12px;font-size:17px;color:var(--tx);min-height:58px}
 label.chk input{width:30px;height:30px;min-height:0;margin:0;flex:none}
 .g2{display:grid;grid-template-columns:1fr 1fr;gap:0 10px}
 .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:0 10px}
@@ -249,16 +249,22 @@ function mineCalc(d){const runs=d.runs||[],mi=d.mine||{};let reg=0,dirRun=0,dirM
  runs.forEach(r=>{const st=runStats(r);if(r.dir){dirRun+=st.m;dirMs+=st.total;if(df==null||r.from<df)df=r.from;if(r.to!=null&&(dt==null||r.to>dt))dt=r.to}else reg+=st.m});
  if(mi.dirFrom!=null&&(df==null||mi.dirFrom<df))df=mi.dirFrom;if(mi.dirTo!=null&&(dt==null||mi.dirTo>dt))dt=mi.dirTo;
  const ov=mineOverlap(d,false),dov=mineOverlap(d,true),rawExtra=mOf(mi.m,mi.from,mi.to),rawExtraDir=mOf(mi.dirM,mi.dirFrom,mi.dirTo);
- const extra=mi.m!=null?r2(rawExtra):Math.max(0,r2(rawExtra-ov)),extraDir=mi.dirM!=null?r2(rawExtraDir):Math.max(0,r2(rawExtraDir-dov));
+ // Rule (v4.1): counted extra = (typed Total, or from/to length if no Total) minus the timed-run overlap, floored at 0. Same for directional.
+ const extra=Math.max(0,r2(rawExtra-ov)),extraDir=Math.max(0,r2(rawExtraDir-dov)),ovSub=r2(rawExtra-extra),dirOvSub=r2(rawExtraDir-extraDir);
  const dir=+d.dir||0,cred=r2(dir*DIRM),drill=r2(reg+extra);
- return{reg:r2(reg),extra:r2(extra),rawExtra:r2(rawExtra),overlap:ov,dirOverlap:dov,drill,dirRunM:r2(dirRun),dirRunMs:dirMs,dirM:r2(dirRun+extraDir),dirFrom:df,dirTo:dt,dir,cred,counted:r2(drill+cred)}}
+ return{reg:r2(reg),extra:r2(extra),rawExtra:r2(rawExtra),rawExtraDir:r2(rawExtraDir),overlap:ov,dirOverlap:dov,ovSub,dirOvSub,typedM:mi.m!=null,typedDirM:mi.dirM!=null,drill,dirRunM:r2(dirRun),dirRunMs:dirMs,dirM:r2(dirRun+extraDir),dirFrom:df,dirTo:dt,dir,cred,counted:r2(drill+cred)}}
 function rangeOverlap(a0,a1,b0,b1){if(a0==null||a1==null||b0==null||b1==null)return 0;const lo1=Math.min(+a0,+a1),hi1=Math.max(+a0,+a1),lo2=Math.min(+b0,+b1),hi2=Math.max(+b0,+b1);return Math.max(0,r2(Math.min(hi1,hi2)-Math.max(lo1,lo2)))}
-function mineOverlap(d,dir){const mi=d.mine||{},from=dir?mi.dirFrom:mi.from,to=dir?mi.dirTo:mi.to;if(from==null||to==null)return 0;return r2((d.runs||[]).filter(r=>!!r.dir===!!dir&&r.from!=null&&r.to!=null).reduce((s,r)=>s+rangeOverlap(from,to,r.from,r.to),0))}
+function unionRanges(rs){const iv=rs.map(([a,b])=>[Math.min(+a,+b),Math.max(+a,+b)]).filter(([a,b])=>isFinite(a)&&isFinite(b)).sort((x,y)=>x[0]-y[0]),out=[];
+ iv.forEach(([a,b])=>{const l=out[out.length-1];if(l&&a<=l[1])l[1]=Math.max(l[1],b);else out.push([a,b])});return out}
+// v4.1: union timed run intervals first so runs that overlap each other are not subtracted twice
+function mineOverlap(d,dir){const mi=d.mine||{},from=dir?mi.dirFrom:mi.from,to=dir?mi.dirTo:mi.to;if(from==null||to==null)return 0;
+ const u=unionRanges((d.runs||[]).filter(r=>r&&!!r.dir===!!dir&&r.from!=null&&r.to!=null).map(r=>[r.from,r.to]));
+ return r2(u.reduce((s,[a,b])=>s+rangeOverlap(from,to,a,b),0))}
 function mineExtraHtml(d,id){const mc=mineCalc(d),ov=mineOverlap(d,false),dov=mineOverlap(d,true),extraDir=r2(mc.dirM-mc.dirRunM);
  let h=`<p class="mut sm" id="${id}Extra">Timed regular runs already count ${fm(mc.reg)} m. Extra untimed metres (${fm(mc.extra)} m) are added on top — do not re-enter a stretch already on the timer.</p>`;
- if(ov)h+=`<div class="warn" id="${id}Ov">⚠ From/to overlaps ${fm(ov)} m already counted on timed runs. That overlap is left out of the counted total (and pay) so it is not double-counted.</div>`;
+ if(ov)h+=`<div class="warn" id="${id}Ov">⚠ From/to overlaps ${fm(ov)} m already counted on timed runs. ${fm(mc.ovSub)} m was subtracted from the ${mc.typedM?'typed Total':'from/to length'} (${fm(mc.rawExtra)} m → ${fm(mc.extra)} m counted${mc.ovSub<ov?', floored at 0':''}) so it is not double-counted in the counted total (and pay).</div>`;
  if(mc.dirRunM||(d.mine&&(d.mine.dirFrom!=null||d.mine.dirTo!=null||d.mine.dirM!=null)))h+=`<p class="mut sm" id="${id}DirExtra">Timed directional runs already record ${fm(mc.dirRunM)} m (not counted). Extra untimed directional metres (${fm(extraDir)} m) are added on top for info only.</p>`;
- if(dov)h+=`<div class="warn" id="${id}DirOv">⚠ Directional from/to overlaps ${fm(dov)} m already on timed directional runs. That overlap is left out of the directional metres total.</div>`;
+ if(dov)h+=`<div class="warn" id="${id}DirOv">⚠ Directional from/to overlaps ${fm(dov)} m already on timed directional runs. ${fm(mc.dirOvSub)} m was subtracted from the ${mc.typedDirM?'typed directional Total':'directional from/to length'} (${fm(mc.rawExtraDir)} m → ${fm(extraDir)} m${mc.dirOvSub<dov?', floored at 0':''}) in the directional metres total.</div>`;
  return h+sumKv(mc,id)}
 const crossLabel=d=>((d&&d.shift==='Day')?'Night':'Day')+' shift';
 function dayCalc(d){
@@ -287,7 +293,8 @@ function buildComments(d){
  if(d.preop)L.push(`-Did pre-op on drill & pump shack (${fh(d.preop)})`);
  if(d.covered)L.push(`-Driller off / covered${d.driller?' by '+d.driller:''}`);
  const mcx=mineCalc(d);
- if(mcx.dir)L.push(`-Directional drilling (${fm(mcx.dir)} hrs = ${fm(mcx.cred)}m)`);
+ if(d.dirUseTimed){const th2=th(H(mcx.dirRunMs));if(th2)L.push(`-Directional drilling (${th2} hrs${mcx.cred?`, ${fm(mcx.cred)}m credit`:''})`)} // v4.1: same hours as the Directional hours line
+ else if(mcx.dir)L.push(`-Directional drilling (${fm(mcx.dir)} hrs = ${fm(mcx.cred)}m)`);
  if(mcx.dirM)L.push(`-Directional metres${mcx.dirFrom!=null&&mcx.dirTo!=null?` from ${fm(mcx.dirFrom)}m to ${fm(mcx.dirTo)}m`:''} = ${fm(mcx.dirM)}m (not counted)`);
  const items=[];
  (d.acts||[]).forEach(a=>items.push({s:a.s||0,a}));
@@ -848,7 +855,7 @@ async function finishRun(ts,early){
  if(!v||v.to==null)return;
  const s=curSeg();if(!s.e)s.e=ts;last.to=v.to;r.to=v.to;r.end=ts;r.notes=v.notes||'';delete r.resume;
  const d=S.days[r.dayId]||D();d.runs.push(r);d.curDepth=v.to;S.run=null;
- if(S.settings.autoNext&&!early&&S.cur===d.id)startRunAt(v.to,ts);
+ if(S.settings.autoNext&&!early&&S.cur===d.id)startRunAt(v.to,Date.now()); // v4.1: stamp next run at modal confirm, like Start run
  save();render();toast(`Saved ${fm(r2(v.to-r.from))} m`);
 }
 
