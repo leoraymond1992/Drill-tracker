@@ -24,8 +24,8 @@ header .t b{font-size:17px;color:var(--amb)}
 header .t div{font-size:13px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 header .st{font-size:13px;font-weight:700;color:var(--grn);text-align:right}
 main{padding:10px 10px 140px;max-width:760px;margin:0 auto}
-nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:#05070a;border-top:2px solid var(--line);display:grid;grid-template-columns:repeat(6,1fr);padding-bottom:env(safe-area-inset-bottom)}
-nav button{background:none;border:0;color:var(--mut);font-size:13px;padding:10px 0 11px;min-height:72px;font-weight:700}
+nav{position:fixed;bottom:0;left:0;right:0;z-index:6;background:#05070a;border-top:2px solid var(--line);display:grid;grid-template-columns:repeat(7,1fr);padding-bottom:env(safe-area-inset-bottom)}
+nav button{background:none;border:0;color:var(--mut);font-size:12px;padding:10px 0 11px;min-height:72px;font-weight:700}
 nav button span{display:block;font-size:24px}
 nav button.on{color:var(--amb);background:#11151a}
 .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin:0 0 12px}
@@ -88,13 +88,36 @@ table{border-collapse:collapse;width:100%}
 .sheet h2{margin:0 0 10px;color:var(--amb);font-size:21px}
 #toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:var(--amb);color:#000;font-weight:800;padding:12px 18px;border-radius:12px;z-index:30;display:none;max-width:90%}
 .drvban{display:block;width:100%;text-align:left;color:var(--tx);min-height:58px;font-size:16px;font-weight:700;cursor:pointer}
+.hitchbar{display:flex;align-items:center;gap:8px;background:#1b1530;border:2px solid var(--pur);border-radius:12px;padding:8px 10px;margin:0 0 12px;font-weight:800;font-size:17px}
+.hitchbar.day{background:#2b220a;border-color:var(--amb)}.hitchbar.off{background:#0f2a1a;border-color:var(--grn)}
+.hitchbar .x{flex:1}.hitchbar .btn{width:auto;min-width:58px;margin:0}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;margin-bottom:12px}
+.cal .hd{font-size:12px;color:var(--mut);text-align:center}
+.cal button{min-height:58px;border-radius:8px;border:2px solid var(--line);background:var(--card2);color:var(--mut);font-size:15px;font-weight:800;padding:2px;line-height:1.1}
+.cal button small{display:block;font-size:11px;font-weight:700}
+.cal .wn{background:#2a1f4a;color:#e3d4ff;border-color:#5b44a0}.cal .wd{background:#4a3708;color:#ffe08a;border-color:#a57c10}.cal .of{background:#0f2a1a;color:#8fe3b0;border-color:#1f5a36}
+.cal .ov{border-style:dashed;border-color:#fff}.cal .td{outline:3px solid var(--red);outline-offset:-1px}
+.legend span{display:inline-block;padding:2px 8px;border-radius:8px;margin:0 6px 6px 0;font-size:13px}
+.pick{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}.pick .chip.on{background:var(--amb);color:#111;border-color:var(--amb)}
+.pm{display:flex;align-items:center;gap:8px;margin:0 0 10px}.pm .btn{width:72px;min-height:64px;font-size:28px;margin:0}.pm .v{flex:1;text-align:center;font-size:34px;font-weight:900}
+.rcres{font-size:44px;font-weight:900;text-align:center;border-radius:12px;padding:8px;margin:0 0 10px}
+.rcres.ok{background:#0f3d24;color:var(--grn)}.rcres.bad{background:#4a1010;color:#ff8a8a}
+.bfrow{border:2px solid var(--line);border-radius:12px;padding:10px;margin:0 0 12px}
+.bfrow .err{color:var(--red);font-weight:700;font-size:14px}
+.pill.bf{color:var(--blu)}.pill.red{color:var(--red)}
 .warn{background:#3a2a08;border:1px solid var(--amb);border-radius:10px;padding:8px;font-size:14px;margin-bottom:10px}
+#toast.big{font-size:22px;padding:20px 24px;bottom:45%;border:3px solid #111;text-align:center;min-width:70%}
+.bitalert{border:3px solid var(--red);background:#4a1010}.bitalert .btn{margin:8px 0 0}
+.bfwho{font-weight:800;font-size:14px;margin:4px 0}.bfwho.me{color:var(--grn)}.bfwho.cr{color:var(--blu)}
+.tbl td,.tbl th{padding:4px 6px}
+.sprint{background:#fff;color:#111;border-radius:10px;padding:14px;margin:0 0 12px}.sprint table{width:100%;border-collapse:collapse}.sprint td,.sprint th{border:1px solid #999;padding:4px 6px;text-align:left;color:#111}.sprint h3,.sprint h2{color:#111}
 @media print{
  body{background:#fff}
  header,nav,#toast,#modal,.noprint{display:none!important}
  main{padding:0;max-width:none}
  .card{border:0;padding:0;background:#fff}
  .report{border-radius:0;padding:0}
+ .sprint{padding:0;border-radius:0}
 }
 </style>
 </head>
@@ -129,10 +152,11 @@ const DOW=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
 const nice=s=>{if(!s)return'';const d=parseD(s);return `${DOW[d.getDay()]} ${MON[d.getMonth()]} ${d.getDate()}`};
 const hm=ts=>{const d=new Date(ts);return `${pad(d.getHours())}:${pad(d.getMinutes())}`};
 const H=ms=>ms/3.6e6;
+const plural=(n,w,pl)=>`${n} ${n===1||n==='1'?w:(pl||w+'s')}`;
 
 /* ===== Constants ===== */
-const BUCKETS=['Casing','Coring','Directional','Reaming Rods','Reaming Casing','Rod Pull','Testing','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
-const FT_ROWS=['Casing','Coring','Reaming Rods','Reaming Casing','Rod Pull','Testing'];
+const BUCKETS=['Casing','Coring','Directional','Reaming Rods','Reaming Casing','Reaming','Rod Pull','Testing','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
+const FT_ROWS=['Casing','Coring','Reaming Rods','Reaming Casing','Reaming','Rod Pull','Testing'];
 const HR_ROWS=['Directional','Waterline','Moving','Tear Down/Setup','Hole Stabilizing','CAT','Travel','Repair Maintenance','Standby'];
 const FROMTO=[['from','From (m)','num'],['to','To (m)','num']];
 const ACTS={
@@ -151,17 +175,22 @@ const ACTS={
  casing:{n:'Casing',ic:'⭕',b:'Casing',f:[...FROMTO]},
  reamrods:{n:'Reaming rods',ic:'🌀',b:'Reaming Rods',f:[...FROMTO]},
  reamcasing:{n:'Reaming casing',ic:'🌀',b:'Reaming Casing',f:[...FROMTO]},
+ ream:{n:'Reaming',ic:'🔩',b:'Reaming',f:[...FROMTO,['passes','Passes (optional)','num'],['depth','Depth if no from/to (m)','num']]},
  stab:{n:'Hole stabilizing',ic:'🧪',b:'Hole Stabilizing',f:[['desc','Mud / cement / details','text']]},
  cat:{n:'CAT',ic:'🚜',b:'CAT',f:[['desc','Details','text']]},
  other:{n:'Other',ic:'📝',b:'Standby',f:[['desc','What','text']]}
 };
 const DEFMAP=Object.fromEntries(Object.entries(ACTS).map(([k,v])=>[k,v.b]));DEFMAP.preop='Repair Maintenance';
-const DEF={driller:'Leo',company:'Full Force Drilling',shift:'Night',size:'NQ',runLen:3,round:0.25,shiftLen:12,travelInShift:true,travel:1,preop:0.5,hitchStart:'',hitchShift:'Night',shiftCutoff:8,autoNext:true,wake:false,drivePending:false,driveLast:null,driveConsented:false,map:DEFMAP,
+const DEF={driller:'Leo',company:'Full Force Drilling',shift:'Night',size:'NQ',runLen:3,round:0.25,shiftLen:12,travelInShift:true,travel:1,preop:0.5,hitchStart:'',hitchShift:'Night',shiftCutoff:8,autoNext:true,wake:false,drivePending:false,driveLast:null,driveConsented:false,
+ crewList:'James,Manny',lastCrew:[],drillerNames:[],paceTarget:null,rodLen:3,barrelLen:3,barrelOn:true,standSize:2,
+ hitchOn:28,hitchOff:14,rotaAnchors:[],rotaDayOv:{},rotaTypeOv:{},map:DEFMAP,
+ myName:'Leo',showCrewInShare:false,reamCountsAsDrilled:false,drillNumber:'',drillType:'A5',bitAlertsOn:true,slowPct:40,bitLifeM:null,helperNames:[],bitLifeDismissed:{},
  quick:'Landing ring,Core lifter,Lifter case,Stop ring,Inner tube head,O-rings,Polymer,Bentonite,Rod grease,Pump packing'};
 
 /* ===== State ===== */
 let S;
 let loadError=null;
+const PRE6_KEY='ffdt.pre6',PRE6_META='ffdt.pre6.meta',PRE6_CUR='ffdt.pre6.cur';
 function allDays(){return Object.values((S&&S.days)||{}).filter(d=>d&&typeof d==='object')}
 function load(){
  loadError=null;
@@ -173,7 +202,7 @@ function load(){
  if(unusable){
   try{localStorage.setItem('ffdt.v1.bak',raw)}catch(e){}
   loadError="Saved data couldn't be read, restore a backup";
-  S={v:5,days:{},cur:null,run:null,_corrupt:true};
+  S={v:6,days:{},cur:null,run:null,_corrupt:true};
   S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),{map:Object.assign({},DEFMAP)});
   return;
  }
@@ -181,6 +210,8 @@ function load(){
   S=parsed;
   if(!S||typeof S!=='object'||!S.days)S={v:1,days:{},cur:null,run:null};
   const verIn=S.v||1;
+  // v6 (scope update): keep the raw pre-migration data once, before the v5→v6 step changes anything
+  if(verIn<6&&raw){try{if(localStorage.getItem(PRE6_KEY)==null){localStorage.setItem(PRE6_KEY,raw);localStorage.setItem(PRE6_META,JSON.stringify({savedAt:Date.now(),fromV:verIn,days:Object.keys(S.days||{}).length}))}}catch(e){}}
   const prevSet=S.settings||{};
   S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),prevSet);
   S.settings.map=Object.assign({},DEFMAP,S.settings.map||{});
@@ -202,20 +233,43 @@ function load(){
      ensurePauses(a);
     });
     if(d.driller==null||!String(d.driller).trim())d.driller=defDrill;
+    // v6 day defaults
+    if(typeof d.helper2!=='string')d.helper2='';
+    if(!Array.isArray(d.rodCounts))d.rodCounts=[];
+    if(typeof d.backfilled!=='boolean')d.backfilled=false;
+    if(!('endedAt' in d))d.endedAt=null;
+    if(!('bfHours' in d))d.bfHours=null;
+    // v6 scope update: drill info + bit id (also applied to v6 data saved before these fields existed)
+    if(typeof d.drillType!=='string'||!d.drillType.trim())d.drillType='A5';
+    if(d.drillNumber==null)d.drillNumber='';else d.drillNumber=String(d.drillNumber);
+    if(!('bitId' in d))d.bitId=null;
+    d.runs.forEach(r=>{if(r&&typeof r==='object'&&!('bitId' in r))r.bitId=null});
    }catch(e){}
   };
   allDays().forEach(migrateDay);
-  try{if(S.run&&typeof S.run==='object'){if(S.run.dir==null)S.run.dir=false;ensurePauses(S.run)}}catch(e){}
+  if(!S.crossDays||typeof S.crossDays!=='object'||Array.isArray(S.crossDays))S.crossDays={};
+  Object.values(S.crossDays).forEach(d=>{if(d&&typeof d==='object'){migrateDay(d);d.crossShift=true}});
+  try{if(S.run&&typeof S.run==='object'){if(S.run.dir==null)S.run.dir=false;ensurePauses(S.run);if(!('bitId' in S.run))S.run.bitId=null}}catch(e){}
   if((S.v||1)<2)S.v=2;
   if(!('hitchShift' in prevSet)||!S.settings.hitchShift)S.settings.hitchShift=S.settings.shift||'Night';
   if((S.v||1)<3)S.v=3;
   if((S.v||1)<4)S.v=4;
   if((S.v||1)<5)S.v=5; // v5: settings.drivePending/driveLast/driveConsented (via DEF), day.mine.totalExcludesTimed
+  // v6: crew, pace, rod count, rotation settings (defaults via DEF); type-check the containers
+  const st=S.settings;
+  ['lastCrew','drillerNames','rotaAnchors'].forEach(k=>{if(!Array.isArray(st[k]))st[k]=[]});
+  ['rotaDayOv','rotaTypeOv'].forEach(k=>{if(!st[k]||typeof st[k]!=='object'||Array.isArray(st[k]))st[k]={}});
+  st.rotaAnchors=st.rotaAnchors.filter(a=>a&&typeof a==='object'&&a.from&&a.start);
+  if(!('myName' in prevSet))st.myName=String(prevSet.driller||'').trim()||'Leo';
+  if(!Array.isArray(st.helperNames))st.helperNames=[];
+  if(!st.bitLifeDismissed||typeof st.bitLifeDismissed!=='object'||Array.isArray(st.bitLifeDismissed))st.bitLifeDismissed={};
+  if(typeof st.drillType!=='string')st.drillType='A5';if(st.drillNumber==null)st.drillNumber='';
+  if((S.v||1)<6)S.v=6;
   if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){}}
  }catch(e){
   try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){}
   loadError="Saved data couldn't be read, restore a backup";
-  if(!S||typeof S!=='object'){S={v:5,days:{},cur:null,run:null,_corrupt:true};S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),{map:Object.assign({},DEFMAP)})}
+  if(!S||typeof S!=='object'){S={v:6,days:{},cur:null,run:null,_corrupt:true};S.settings=Object.assign(JSON.parse(JSON.stringify(DEF)),{map:Object.assign({},DEFMAP)})}
   else S._corrupt=true;
  }
 }
@@ -249,6 +303,7 @@ function beginActPause(a,ts=Date.now()){if(!a||a.e||a.hrs!=null)return false;if(
 function endActPause(a,ts=Date.now()){if(!a||!Array.isArray(a.pauses))return false;const p=a.pauses[a.pauses.length-1];if(!p||p.e!=null)return false;p.e=ts;return true}
 function crossM(c){if(!c)return 0;if(c.m!=null)return c.m;if(c.from!=null&&c.to!=null)return r2(c.to-c.from);return 0}
 const mOf=(m,f,t)=>m!=null?m:(f!=null&&t!=null?r2(t-f):0);
+const REAM_TYPES=['ream','reamrods','reamcasing'];
 const DIRM=3; // metres credited per directional hour (12 h = 36 m)
 function crossCalc(c){c=c||{};const drill=r2(crossM(c)),dirM=r2(mOf(c.dirM,c.dirFrom,c.dirTo)),dir=+c.dir||0,cred=r2(dir*DIRM);return{drill,dirM,dirFrom:c.dirFrom,dirTo:c.dirTo,dir,cred,counted:r2(drill+cred)}}
 function mineCalc(d){const runs=d.runs||[],mi=d.mine||{};let reg=0,dirRun=0,dirMs=0,df=null,dt=null;
@@ -257,9 +312,14 @@ function mineCalc(d){const runs=d.runs||[],mi=d.mine||{};let reg=0,dirRun=0,dirM
  const ov=mineOverlap(d,false),dov=mineOverlap(d,true),rawExtra=mOf(mi.m,mi.from,mi.to),rawExtraDir=mOf(mi.dirM,mi.dirFrom,mi.dirTo);
  // Rule (v4.1): counted extra = (typed Total, or from/to length if no Total) minus the timed-run overlap, floored at 0. Same for directional.
  const excl=mi.m!=null&&mi.totalExcludesTimed===true; // v5: he said his typed Total already leaves out the timed metres
- const extra=excl?r2(rawExtra):Math.max(0,r2(rawExtra-ov)),extraDir=Math.max(0,r2(rawExtraDir-dov)),ovSub=r2(rawExtra-extra),dirOvSub=r2(rawExtraDir-extraDir);
+ // v6: typed Total with no From/To on a day with timed regular runs. null = not answered: count the typed number in full (never drop metres silently).
+ // yes = Total leaves the timed metres out (count in full). no = Total includes them (typed − timed metres, floored at 0).
+ const noFT=mi.m!=null&&(mi.from==null||mi.to==null)&&reg>0,noFtSub=noFT?r2(Math.min(+mi.m||0,reg)):0,noFtAsk=noFT&&mi.totalExcludesTimed==null;
+ const extra=noFT?(mi.totalExcludesTimed===false?Math.max(0,r2(rawExtra-reg)):r2(rawExtra)):excl?r2(rawExtra):Math.max(0,r2(rawExtra-ov)),extraDir=Math.max(0,r2(rawExtraDir-dov)),ovSub=r2(rawExtra-extra),dirOvSub=r2(rawExtraDir-extraDir);
  const dir=+d.dir||0,cred=r2(dir*DIRM),drill=r2(reg+extra);
- return{reg:r2(reg),extra:r2(extra),rawExtra:r2(rawExtra),rawExtraDir:r2(rawExtraDir),overlap:ov,dirOverlap:dov,ovSub,dirOvSub,excl,typedM:mi.m!=null,typedDirM:mi.dirM!=null,drill,dirRunM:r2(dirRun),dirRunMs:dirMs,dirM:r2(dirRun+extraDir),dirFrom:df,dirTo:dt,dir,cred,counted:r2(drill+cred)}}
+ // Reamed metres (Reaming / Reaming rods / Reaming casing with From/To) never count as drilled metres unless settings.reamCountsAsDrilled is on.
+ const reamM=r2((d.acts||[]).filter(a=>a&&REAM_TYPES.includes(a.type)&&a.f&&a.f.from!=null&&a.f.to!=null).reduce((t,a)=>t+Math.abs(a.f.to-a.f.from),0)),reamAdd=S&&S.settings&&S.settings.reamCountsAsDrilled===true?reamM:0;
+ return{reamM,reamAdd,reg:r2(reg),extra:r2(extra),rawExtra:r2(rawExtra),rawExtraDir:r2(rawExtraDir),overlap:ov,dirOverlap:dov,ovSub,dirOvSub,excl,noFT,noFtSub,noFtAsk,typedM:mi.m!=null,typedDirM:mi.dirM!=null,drill,dirRunM:r2(dirRun),dirRunMs:dirMs,dirM:r2(dirRun+extraDir),dirFrom:df,dirTo:dt,dir,cred,counted:r2(drill+cred+reamAdd)}}
 function rangeOverlap(a0,a1,b0,b1){if(a0==null||a1==null||b0==null||b1==null)return 0;const lo1=Math.min(+a0,+a1),hi1=Math.max(+a0,+a1),lo2=Math.min(+b0,+b1),hi2=Math.max(+b0,+b1);return Math.max(0,r2(Math.min(hi1,hi2)-Math.max(lo1,lo2)))}
 function unionRanges(rs){const iv=rs.map(([a,b])=>[Math.min(+a,+b),Math.max(+a,+b)]).filter(([a,b])=>isFinite(a)&&isFinite(b)).sort((x,y)=>x[0]-y[0]),out=[];
  iv.forEach(([a,b])=>{const l=out[out.length-1];if(l&&a<=l[1])l[1]=Math.max(l[1],b);else out.push([a,b])});return out}
@@ -275,6 +335,9 @@ function mineExtraHtml(d,id){const mc=mineCalc(d),ov=mineOverlap(d,false),dov=mi
   if(mc.typedM&&!ro){h+=mi.totalExcludesTimed==null?`<div id="${id}ExclAsk" style="margin-top:8px"><b>Did you already leave the ${fm(ov)} m of timed metres out of the Total you typed?</b><div class="row" style="margin-top:6px"><button class="btn ghost sm" data-a="mineExcl" data-v="yes">Yes, already left out</button><button class="btn ghost sm" data-a="mineExcl" data-v="no">No, subtract them</button></div></div>`:` <button class="btn ghost sm" data-a="mineExcl" data-v="reset" id="${id}ExclReset">Change answer</button>`}
   h+=`</div>`}
  if(mi.m!=null&&(mi.from==null||mi.to==null))h+=`<p class="mut sm" id="${id}NoFT">ℹ Add the From and To depths for this Total so the app can check it against your timed runs and not count any metres twice.</p>`;
+ if(mc.noFT){const q=`<b>Did you already leave out the metres your timed runs caught?</b>`;
+  if(mc.noFtAsk)h+=`<div class="warn" id="${id}NoFtQ">⚠ <b>Unconfirmed, tap to answer.</b> Your typed Total (${fm(mc.rawExtra)} m) has no From/To, and timed runs already caught ${fm(mc.reg)} m. It is counted in full for now (${fm(mc.drill)} m drilled). If it already includes the timed metres, ${fm(mc.noFtSub)} m would be subtracted (${fm(mc.rawExtra)} → ${fm(Math.max(0,r2(mc.rawExtra-mc.reg)))} m extra).${ro?'':`<div style="margin-top:8px">${q}<div class="row" style="margin-top:6px"><button class="btn ghost sm" data-a="mineExcl" data-v="yes" id="${id}NoFtYes">Yes, left out – count it all</button><button class="btn ghost sm" data-a="mineExcl" data-v="no" id="${id}NoFtNo">No, it includes them</button></div></div>`}</div>`;
+  else h+=`<div class="warn" id="${id}NoFtA">${mi.totalExcludesTimed?`You said the typed Total leaves out the timed metres, so all ${fm(mc.rawExtra)} m is counted on top of ${fm(mc.reg)} m timed.`:`You said the typed Total includes the timed metres, so ${fm(mc.noFtSub)} m was subtracted (${fm(mc.rawExtra)} → ${fm(mc.extra)} m extra${+mi.m<mc.reg?', floored at 0':''}).`}${ro?'':` <button class="btn ghost sm" data-a="mineExcl" data-v="reset" id="${id}NoFtReset">Change answer</button>`}</div>`}
  if(mc.dirRunM||(d.mine&&(d.mine.dirFrom!=null||d.mine.dirTo!=null||d.mine.dirM!=null)))h+=`<p class="mut sm" id="${id}DirExtra">Timed directional runs already record ${fm(mc.dirRunM)} m (not counted). Extra untimed directional metres (${fm(extraDir)} m) are added on top for info only.</p>`;
  if(dov)h+=`<div class="warn" id="${id}DirOv">⚠ Directional from/to overlaps ${fm(dov)} m already on timed directional runs. ${fm(mc.dirOvSub)} m was subtracted from the ${mc.typedDirM?'typed directional Total':'directional from/to length'} (${fm(mc.rawExtraDir)} m → ${fm(extraDir)} m${mc.dirOvSub<dov?', floored at 0':''}) in the directional metres total.${mc.typedDirM?' Note: the timed overlap was subtracted from your typed directional Total (info only – directional metres don\'t count toward pay).':''}</div>`;
  return h+sumKv(mc,id)}
@@ -292,6 +355,7 @@ function dayCalc(d){
  B.Coring.m=mc.drill;B.Directional.h=d.dirUseTimed?H(mc.dirRunMs):mc.dir;
  (d.acts||[]).forEach(a=>{const o=get(map[a.type]||ACTS[a.type]?.b||'Standby');o.h+=actH(a);o.n++;const f=a.f||{};
   if(f.from!=null||f.to!=null){mm(o,f.from,f.to);if(f.from!=null&&f.to!=null)o.m+=Math.abs(f.to-f.from)}});
+ if(d.bfHours!=null&&+d.bfHours>0)B.Coring.h+=+d.bfHours; // v6: quick-add (back-filled) shift hours
  B.Travel.h+=d.travel||0;
  get(map.preop||'Repair Maintenance').h+=d.preop||0;
  let total=0;Object.values(B).forEach(o=>total+=o.h);
@@ -312,8 +376,10 @@ function buildComments(d){
  (d.acts||[]).forEach(a=>items.push({s:a.s||0,a}));
  (d.runs||[]).forEach(r=>{(r.pieces||[]).forEach(p=>{if(p.blocked)items.push({s:p.bt||r.segs[0].s,blk:p})});if(trimNote(r.notes))items.push({s:r.segs[0].s,runN:r})});
  (d.bits||[]).forEach(b=>items.push({s:b.t||0,bit:b}));
+ (d.rodCounts||[]).forEach(rc=>{if(rc&&rc.inReport)items.push({s:rc.t||0,rc})});
  items.sort((x,y)=>x.s-y.s);
  items.forEach(it=>{
+  if(it.rc){L.push('-Rod count on deck: '+rcText(it.rc)+noteSuffix(it.rc.notes));return}
   if(it.blk){L.push(`-Blocked @ ${dd(it.blk.to)}m${it.blk.note?' - '+it.blk.note:''}`);return}
   if(it.runN){const r=it.runN;L.push(`-Run ${fm(r.from)} → ${fm(r.to)}m${noteSuffix(r.notes)}`);return}
   if(it.bit){const b=it.bit,k=b.kind==='shell'?'shell':'bit';L.push(`-Changed ${k} @ ${dd(b.depth)}m${b.onType||b.onSerial?' (put on '+[b.onType,b.onSerial?'#'+b.onSerial:''].filter(Boolean).join(' ')+')':''}${noteSuffix(b.notes)}`);return}
@@ -335,6 +401,7 @@ function buildComments(d){
    case'casing':s=`-Ran casing from ${dd(f.from)}m to ${dd(f.to)}m ${h}`;break;
    case'reamrods':s=`-Reamed rods from ${dd(f.from)}m to ${dd(f.to)}m ${h}`;break;
    case'reamcasing':s=`-Reamed casing from ${dd(f.from)}m to ${dd(f.to)}m ${h}`;break;
+   case'ream':{const ps=f.passes?', '+plural(f.passes,'pass','passes'):'';s=(f.from!=null&&f.to!=null)?`-Reamed ${dd(f.from)}m-${dd(f.to)}m${ps} ${h}`:`-Reamed${f.depth!=null?' @ '+dd(f.depth)+'m':''}${ps} ${h}`;break}
    case'stab':s=`-Stabilized hole${ds?' - '+ds:''} ${h}`;break;
    case'cat':s=`-CAT${ds?' - '+ds:''} ${h}`;break;
    default:s=`-${ds||'Other'} ${h}`;
@@ -361,21 +428,42 @@ function bitLife(){
 function curBit(kind){return bitLife().filter(x=>x.kind===kind&&x.current)[0]||null}
 function periodOf(ds){const d=parseD(ds),y=d.getFullYear(),m=d.getMonth();return d.getDate()<=15?{start:todayStr(new Date(y,m,1)),end:todayStr(new Date(y,m,15))}:{start:todayStr(new Date(y,m,16)),end:todayStr(new Date(y,m+1,0))}}
 function periodAt(off){let p=periodOf(todayStr());for(let i=0;i<Math.abs(off);i++)p=off<0?periodOf(addDays(p.start,-1)):periodOf(addDays(p.end,1));return p}
-function hitchInfo(ds){const hs=S.settings.hitchStart;if(!hs)return null;const diff=diffDays(ds,hs),cyc=((diff%42)+42)%42,start=addDays(ds,-cyc);return{on:cyc<28,day:cyc<28?cyc+1:cyc-27,start,end:addDays(start,27),back:addDays(start,42)}}
+/* ===== Rotation (v6) =====
+ Base pattern: settings.hitchStart / hitchShift / hitchOn / hitchOff. Re-anchors: settings.rotaAnchors [{from,start,on,off,type}] apply from `from` forward,
+ so earlier days keep their old pattern. Per-day overrides: rotaDayOv {date:'work'|'off'}, rotaTypeOv {date:'N'|'D'}.
+ Shifts are dated by the shift START date (a night that crosses midnight is one shift, dated the evening it starts; see workDate + shiftCutoff). */
+const isDate=s=>/^\d{4}-\d\d-\d\d$/.test(String(s||''));
+function rotaBase(){const st=S.settings;if(!isDate(st.hitchStart))return null;return{from:'0000-00-00',start:st.hitchStart,on:Math.max(1,+st.hitchOn||28),off:(st.hitchOff==null||st.hitchOff===''||isNaN(+st.hitchOff))?14:Math.max(0,+st.hitchOff),type:st.hitchShift==='Day'?'Day':'Night'}}
+function rotaAnchors(){return (S.settings.rotaAnchors||[]).filter(a=>a&&isDate(a.from)&&isDate(a.start)).slice().sort((a,b)=>a.from.localeCompare(b.from))}
+function rotaAnchorFor(ds){let a=rotaBase();rotaAnchors().forEach(x=>{if(x.from<=ds)a={from:x.from,start:x.start,on:Math.max(1,+x.on||28),off:Math.max(0,x.off==null?14:+x.off),type:x.type==='Day'?'Day':'Night'}});return a}
+function hitchInfo(ds){if(!S||!S.settings||!isDate(ds))return null;const a=rotaAnchorFor(ds);if(!a)return null;
+ const cyc=a.on+a.off,diff=diffDays(ds,a.start),c=((diff%cyc)+cyc)%cyc,schedOn=c<a.on,start=addDays(ds,-c);
+ const ov=(S.settings.rotaDayOv||{})[ds],tov=(S.settings.rotaTypeOv||{})[ds];
+ return{on:ov?ov==='work':schedOn,schedOn,ov:ov||null,tov:tov||null,day:schedOn?c+1:c-a.on+1,len:a.on,offLen:a.off,cyc,start,end:addDays(start,a.on-1),back:addDays(start,cyc),type:tov==='D'?'Day':tov==='N'?'Night':a.type,anchor:a}}
+function workRun(ds){let n=0,x=ds;for(let i=0;i<400;i++){const h=hitchInfo(x);if(!h||!h.on)break;n++;x=addDays(x,1)}return n} // work days from ds (incl.) to the end of this stretch
+function hitchLeft(ds,h){let n=0,x=addDays(ds,1);for(let i=0;i<400&&x<=h.end;i++){const k=hitchInfo(x);if(!k||k.start!==h.start||k.len!==h.len)return n;if(k.on)n++;x=addDays(x,1)}return n+workRun(x)} // work days left in this hitch after ds (overrides counted), plus any extra days run on past its end
+function nextWorkDay(ds){let x=addDays(ds,1);for(let i=0;i<400;i++){const h=hitchInfo(x);if(!h)return null;if(h.on)return x;x=addDays(x,1)}return null}
+function hitchText(ds){const h=hitchInfo(ds);if(!h)return null;const N=h.type==='Night',w=N?'Night':'Day';
+ if(h.on&&h.schedOn){const left=hitchLeft(ds,h);return{cls:N?'':'day',txt:`${w} ${h.day} of ${h.len} · ${left>0?`${left} left after ${N?'tonight':'today'}`:`last ${N?'night':'day'} of the hitch`}`,left,h}}
+ if(h.on)return{cls:N?'':'day',txt:`Extra ${N?'night':'day'} (changed) · ${workRun(ds)-1} more after`,left:workRun(ds)-1,h};
+ const nx=nextWorkDay(ds),until=nx?diffDays(nx,ds):null;
+ return{cls:'off',txt:`${h.ov?'Off (changed)':`Off day ${h.day} of ${h.offLen}`}${nx?` · back on ${nice(nx)} (${plural(until,'day')})`:''}`,until,h}}
 function cutoffHour(){const n=parseInt(S.settings&&S.settings.shiftCutoff,10);return (n>=0&&n<=23)?n:8}
-function workDate(now){now=now||new Date(Date.now());let date=todayStr(now);if((S.settings.hitchShift||S.settings.shift)==='Night'&&now.getHours()<cutoffHour())date=addDays(date,-1);return date}
+function schedType(ds){const h=hitchInfo(ds);return h?h.type:((S.settings.hitchShift||S.settings.shift)==='Day'?'Day':'Night')}
+// A night shift that crosses midnight belongs to the evening it started: before the cutoff (default 08:00) it is still yesterday's night.
+function workDate(now){now=now||new Date(Date.now());let date=todayStr(now);if(now.getHours()<cutoffHour()){const y=addDays(date,-1);if(schedType(y)==='Night')date=y}return date}
 const daysIn=(a,b)=>allDays().filter(d=>d.date>=a&&d.date<=b).sort((x,y)=>(x.date).localeCompare(y.date)||(x.created||0)-(y.created||0));
 function agg(days){
- const o={days:days.length,coredM:0,dir:0,cred:0,dirM:0,counted:0,runs:0,dirRuns:0,blocks:0,B:{},total:0,rodPulls:0,rods:0,tests:0,bitCh:0,cross:{m:0,dir:0,cred:0,dirM:0,counted:0,rp:0},cons:{}};
+ const o={days:days.length,reamAdd:0,coredM:0,dir:0,cred:0,dirM:0,counted:0,runs:0,dirRuns:0,blocks:0,B:{},total:0,rodPulls:0,rods:0,tests:0,bitCh:0,cross:{m:0,dir:0,cred:0,dirM:0,counted:0,rp:0},cons:{}};
  BUCKETS.forEach(b=>o.B[b]=0);
  days.forEach(d=>{const c=dayCalc(d);o.coredM+=c.coredM;o.total+=c.total;Object.entries(c.B).forEach(([k,v])=>o.B[k]=(o.B[k]||0)+v.h);
-  const mc=c.mine;o.dir+=mc.dir;o.cred+=mc.cred;o.dirM+=mc.dirM;o.counted+=mc.counted;o.dirRuns+=(d.runs||[]).filter(r=>r.dir).length;o.runs+=(d.runs||[]).length;(d.runs||[]).forEach(r=>o.blocks+=runStats(r).blocks);
+  const mc=c.mine;o.reamAdd+=mc.reamAdd||0;o.dir+=mc.dir;o.cred+=mc.cred;o.dirM+=mc.dirM;o.counted+=mc.counted;o.dirRuns+=(d.runs||[]).filter(r=>r.dir).length;o.runs+=(d.runs||[]).length;(d.runs||[]).forEach(r=>o.blocks+=runStats(r).blocks);
   (d.acts||[]).forEach(a=>{if(a.type==='rodpull'||a.type==='rodin'){o.rodPulls++;o.rods+=a.f?.count||0}if(a.type==='test')o.tests++});
   o.bitCh+=(d.bits||[]).length;
   const cr=d.cross||{},cc=crossCalc(cr);o.cross.m+=cc.drill;o.cross.dir+=cc.dir;o.cross.cred+=cc.cred;o.cross.dirM+=cc.dirM;o.cross.counted+=cc.counted;if(cr.rodpull)o.cross.rp++;
   (d.cons||[]).forEach(x=>{const k=String(x.item).trim();o.cons[k]=(o.cons[k]||0)+(x.qty||1)});
  });
- ['coredM','dir','cred','dirM','counted'].forEach(k=>o[k]=r2(o[k]));['m','dir','cred','dirM','counted'].forEach(k=>o.cross[k]=r2(o.cross[k]));return o;
+ ['coredM','dir','cred','dirM','counted','reamAdd'].forEach(k=>o[k]=r2(o[k]));['m','dir','cred','dirM','counted'].forEach(k=>o.cross[k]=r2(o.cross[k]));return o;
 }
 function stats(days){
  const len=+S.settings.runLen||3,all=[];days.forEach(d=>(d.runs||[]).forEach(r=>all.push(runStats(r))));
@@ -388,9 +476,15 @@ function stats(days){
   latch:avg(all.map(s=>s.latch)),drill:avg(all.map(s=>s.drill)),pull:avg(all.map(s=>s.pull)),
   perM:m?all.reduce((x,s)=>x+s.total,0)/m:0,pen:drillH?m/drillH:0,mShift:worked?m/worked:0,m:r2(m)};
 }
+function shiftStartMs(d){let t=d&&d.created?d.created:null;(d.runs||[]).forEach(r=>{const s=r.segs&&r.segs[0]&&r.segs[0].s;if(s&&(t==null||s<t))t=s});(d.acts||[]).forEach(a=>{if(a.s&&(t==null||a.s<t))t=a.s});if(S.run&&S.run.dayId===d.id){const s=S.run.segs[0].s;if(t==null||s<t)t=s}return t}
+// On-pace metres: counted drilled metres so far, rate since the shift started, projected to the end of the shift length.
+function paceCalc(d,now=Date.now()){const soFar=mineCalc(d).drill,t0=shiftStartMs(d),len=+S.settings.shiftLen||12;
+ const el=t0?Math.max(0,H(now-t0)):0,rate=el>=0.25&&soFar>0?soFar/el:null,left=Math.max(0,len-el),proj=rate==null?null:r2(soFar+rate*left);
+ const tg=+S.settings.paceTarget>0?+S.settings.paceTarget:null;return{soFar:r2(soFar),elapsedH:el,rate:rate==null?null:r2(rate),leftH:left,proj,target:tg,diff:tg!=null&&proj!=null?r2(proj-tg):null}}
 function runningActs(){const out=[];allDays().forEach(d=>(d.acts||[]).forEach(a=>{if(a&&!a.e&&a.hrs==null)out.push({d,a})}));return out}
 /* ===== UI helpers ===== */
-function toast(m){const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>t.style.display='none',2200)}
+function toast(m,big){const t=$('#toast');t.textContent=m;t.className=big?'big':'';t.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>{t.style.display='none';t.className=''},big?4500:2200)}
+const toastBig=m=>toast(m,true);
 function corruptBanner(){return `<div class="warn" id="loadErr">${esc(loadError)}. A copy was saved as a backup. Use Import backup to restore — the original data was not overwritten.</div><button class="btn" data-a="importJSON">⬆ Import backup</button>`}
 const buzz=()=>{try{navigator.vibrate&&navigator.vibrate(35)}catch(e){}};
 function fieldHtml(f){
@@ -404,17 +498,17 @@ function fieldHtml(f){
 function ask(title,fields=[],opt={}){
  return new Promise(res=>{
   const m=$('#modal');
-  m.innerHTML=`<div class="sheet"><h2>${esc(title)}</h2>${opt.msg?`<p class="mut">${opt.msg}</p>`:''}<form id="mf" novalidate>${fields.map(fieldHtml).join('')}
+  m.innerHTML=`<div class="sheet"><h2>${esc(title)}</h2>${opt.msg?`<div class="mut" style="margin:0 0 12px">${opt.msg}</div>`:''}<form id="mf" novalidate>${fields.map(fieldHtml).join('')}
   ${opt.alt?`<button type="button" class="btn blu" id="malt">${esc(opt.alt)}</button>`:''}
   <div class="row"><button type="button" class="btn ghost" id="mcancel">Cancel</button><button type="submit" class="btn ${opt.danger?'red':'grn'}" id="mok">${esc(opt.ok||'Save')}</button></div></form></div>`;
-  m.hidden=false;
+  m.onclick=null;m.oninput=null;m.onchange=null;m.hidden=false;
   const form=$('#mf');
   const collect=()=>{const o={};fields.forEach(f=>{const el=form.elements[f.k];if(!el)return;o[f.k]=f.t==='check'?el.checked:f.t==='num'?num(el.value):el.value});return o};
   const done=v=>{m.hidden=true;m.innerHTML='';res(v);setTimeout(render,0)};
   form.onsubmit=e=>{e.preventDefault();done(collect())};
   $('#mcancel').onclick=()=>done(null);
   if(opt.alt)$('#malt').onclick=()=>{const o=collect();o._alt=true;done(o)};
-  const first=form.querySelector('input:not([type=checkbox]),textarea');if(first&&opt.focus!==false)setTimeout(()=>{try{first.focus()}catch(e){}},50);
+  const first=form.querySelector('input:not([type=checkbox]),textarea');if(opt.focusCancel)setTimeout(()=>{try{$('#mcancel').focus()}catch(e){}},50);else if(first&&opt.focus!==false)setTimeout(()=>{try{first.focus()}catch(e){}},50);
  });
 }
 const confirmBox=(msg,ok='Yes, delete')=>ask(msg,[],{ok,danger:true}).then(v=>!!v);
@@ -431,11 +525,11 @@ function inp(path,label,t='text',o){ // bound to current day (data-b) or setting
 function elVal(el){if(el.type==='checkbox')return el.checked;if(el.dataset.t==='num')return num(el.value);return el.value}
 
 /* ===== Views ===== */
-const TABS=[['shift','🗓','Shift'],['timer','⏱','Timer'],['log','🔧','Log'],['report','📋','Report'],['days','📚','Days'],['totals','Σ','Totals']];
+const TABS=[['shift','🗓','Shift'],['timer','⏱','Timer'],['log','🔧','Log'],['report','📋','Report'],['days','📚','Days'],['totals','Σ','Totals'],['sched','📅','Hitch']];
 function render(){
  if(!$('#modal').hidden)return;
- $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k?'on':''}"><span>${i}</span>${l}</button>`).join('');
- const V={shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings}[tab]||vShift;
+ $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
+ const V={shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
  $('#main').innerHTML=(loadError?corruptBanner():'')+drivePendingBanner()+V();
  renderHeader();
 }
@@ -445,6 +539,46 @@ function renderHeader(){
  runningActs().forEach(({a})=>parts.push(`${isActPaused(a)?'⏸ PAUSED':'●'} ${(ACTS[a.type]?.n||'').split(' ')[0]} ${fdur(actElapsedMs(a))}`));
  $('#hst').innerHTML=parts.map(esc).join('<br>');
 }
+
+/* ===== v6 view helpers ===== */
+const crewNames=()=>String(S.settings.crewList||'').split(',').map(x=>x.trim()).filter(Boolean);
+const crewStr=d=>[d.helper,d.helper2].map(x=>String(x||'').trim()).filter(Boolean).join(' & ');
+// Crew privacy: helper names stay in the data (export / Drive backup) but printed / shared output leaves them out unless settings.showCrewInShare is on.
+const helperOut=d=>S.settings.showCrewInShare?crewStr(d):'';
+const drillLabel=d=>[String(d&&d.drillType||'').trim(),String(d&&d.drillNumber||'').trim()?'#'+String(d.drillNumber).trim():''].filter(Boolean).join(' ');
+function hitchBar(ds){const t=hitchText(ds);
+ if(!t)return `<div class="hitchbar off" id="hitchCtr"><div class="x">Hitch not set</div><button class="btn ghost sm" data-a="setHitch" id="hitchSet">Set hitch start</button></div>`;
+ return `<div class="hitchbar ${t.cls}" id="hitchCtr"><div class="x">${t.cls==='off'?'🏕':t.h.type==='Night'?'🌙':'☀'} ${esc(t.txt)}</div><button class="btn ghost sm" data-a="tab" data-v="sched" aria-label="Hitch calendar">📅</button><button class="btn ghost sm" data-a="setHitch" aria-label="Set hitch start">✎</button></div>`}
+function crewPick(d){const names=crewNames();const chip=(slot,n)=>{const on=String(d[slot]||'').trim().toLowerCase()===n.toLowerCase();return `<button class="chip${on?' on':''}" data-a="pickCrew" data-v="${esc(n)}" data-slot="${slot}">${on?'✔ ':''}${esc(n)}</button>`};
+ if(!names.length)return '';
+ return `<div class="mut sm">Helper – tap a name</div><div class="pick" id="crewPick">${names.map(n=>chip('helper',n)).join('')}</div>
+ <div class="mut sm">2nd helper (optional)</div><div class="pick" id="crewPick2">${names.map(n=>chip('helper2',n)).join('')}</div>`}
+function paceCard(d){const p=paceCalc(d);if(!(d.runs||[]).length&&!p.soFar)return'';
+ return `<div class="card" id="paceCard"><h2>On pace · Estimate</h2>
+ <div class="kv"><span>Metres so far</span><b id="paceSoFar">${fm(p.soFar)} m</b></div>
+ <div class="kv"><span>Rate</span><b>${p.rate==null?'—':fm(p.rate)+' m/h'}</b></div>
+ <div class="kv"><span>Estimate by end of shift (${fh(p.leftH)||0} h left)</span><b class="amb" id="paceProj">${p.proj==null?(p.soFar>0?'—':'— (no metres yet)'):'~'+fm(p.proj)+' m'}</b></div>
+ ${p.target!=null?`<div class="kv"><span>Estimate vs target ${fm(p.target)} m</span><b id="paceVs" class="${p.diff!=null&&p.diff>=0?'grn':'red'}">${p.diff==null?'—':p.diff>=0?'+'+fm(p.diff)+' m ahead':fm(-p.diff)+' m short'}</b></div>`:''}</div>`}
+function rcText(rc){const per=rc.per||2;return `${plural(rc.rods,'rod')}${rc.stands?` (${plural(rc.stands,'stand')} × ${per}${rc.singles?` + ${rc.singles}`:''})`:''}${rc.barrel?` + barrel ${fm(rc.barrelLen)} m`:''} = ${fm(rc.length)} m${rc.depth!=null?` vs hole ${fm(rc.depth)} m – ${rcVerdict(rc)}`:''}`}
+const rcVerdict=rc=>rc.depth==null?'':Math.abs(rc.diff)<0.05?'MATCH':(rc.diff>0?'+':'−')+fm(Math.abs(rc.diff))+' m';
+function rcCalc(o){const rods=Math.max(0,(+o.stands||0)*(+o.per||2)+(+o.singles||0)),rodLen=+o.rodLen||3,barrelLen=o.barrel?(+o.barrelLen||0):0,length=r2(rods*rodLen+barrelLen),depth=o.depth==null||o.depth===''||isNaN(+o.depth)?null:+o.depth;
+ return{rods,length,depth,diff:depth==null?null:r2(length-depth)}}
+function wrapData(d){const c=dayCalc(d),mc=c.mine,B=c.B,sx=stats([d]);let other=0;Object.entries(B).forEach(([k,o])=>{if(k!=='Coring'&&k!=='Directional'&&k!=='Travel')other+=o.h});
+ const bd=(d.acts||[]).filter(a=>a.type==='breakdown');
+ return{counted:mc.counted,drill:mc.drill,cred:mc.cred,runs:(d.runs||[]).length,blocks:(d.runs||[]).reduce((t,r)=>t+runStats(r).blocks,0),from:d.startDepth,to:dayDepth(d),
+  drillH:B.Coring.h+B.Directional.h,otherH:other,travelH:B.Travel.h,total:c.total,bdN:bd.length,bdH:bd.reduce((t,a)=>t+actH(a),0),bdList:bd.map(a=>(a.f&&a.f.desc)||'repair'),
+  cats:Object.entries(B).filter(([k,o])=>o.h>0).map(([k,o])=>[k,o.h]),crew:{driller:d.driller||'',helpers:crewStr(d)},avg:sx.avg,noFtAsk:mc.noFtAsk}}
+function wrapHtml(d){const w=wrapData(d);
+ return `<div id="wrap"><div class="kv"><span>Counted metres</span><b class="grn" id="wrapM">${fm(w.counted)} m</b></div>
+ <div class="kv"><span>Drilled · dir credit</span><b>${fm(w.drill)} m · ${fm(w.cred)} m</b></div>
+ <div class="kv"><span>Runs · blocks</span><b id="wrapRuns">${w.runs} · ${w.blocks}</b></div>
+ <div class="kv"><span>Depth</span><b id="wrapDepth">${fm(w.from)||'?'} → ${fm(w.to)||'?'} m</b></div>
+ <div class="kv"><span>Hours drilling · other · travel</span><b id="wrapHrs">${th(w.drillH)||0} · ${th(w.otherH)||0} · ${th(w.travelH)||0}</b></div>
+ <div class="kv"><span>Breakdowns</span><b id="wrapBd">${w.bdN?`${w.bdN} · ${th(w.bdH)||0} h`:'none'}</b></div>${w.bdN?`<p class="sm">${esc(w.bdList.join(', '))}</p>`:''}
+ <div class="kv"><span>Crew</span><b id="wrapCrew">${esc(w.crew.driller)}${w.crew.helpers?' / '+esc(w.crew.helpers):''}</b></div>
+ <h3 style="color:var(--blu)">Pay hours</h3>${w.cats.map(([k,h])=>`<div class="kv"><span>${esc(k)}</span><b>${th(h)}</b></div>`).join('')}
+ <div class="kv"><span><b>TOTAL HOURS</b></span><b class="amb" id="wrapTotal">${th(w.total)||0}</b></div>
+ ${w.noFtAsk?`<div class="warn" id="wrapNoFt">⚠ Extra Total is unconfirmed – answer it on the Shift tab.</div>`:''}</div>`}
 function needDay(){return `<div class="card c"><h2>No shift open</h2><p class="mut">Start your shift to begin logging.</p><button class="btn huge" data-a="newShift">▶ Start new shift</button></div>`}
 
 function vShift(){
@@ -455,6 +589,9 @@ function vShift(){
   <div class="g2">${inp('date','Date','date')}${inp('shift','Day / Night','select',{opts:['Night','Day']})}</div>
   <div class="g2">${inp('job','Job No','text',{ph:'NexGen'})}${inp('hole','Hole No','text',{ph:'RK-26-306-C1'})}</div>
   <div class="g2">${inp('driller','Driller (this shift)')}${inp('helper','Helper')}</div>
+  ${crewPick(d)}${inp('helper2','2nd helper (optional)')}
+  <div class="g2">${inp('drillType','Drill type')}${inp('drillNumber','Drill number')}</div>
+  ${inp('bitId','Bit ID in hole (optional, for bit alerts)','text',{ph:'e.g. B456'})}
   <p class="mut sm" style="margin-top:-6px">Defaults to your name in Settings. Change it if someone covered your shift.</p>
   ${inp('covered','Driller off / covered (someone else ran this shift)','check')}
   <div class="g2">${inp('size','Size','select',{opts:['NQ','HQ','BQ','PQ','NQ3','HQ3']})}${inp('startDepth','Start depth (m)','num')}</div>
@@ -493,16 +630,17 @@ function vShift(){
 }
 function sumKv(x,id){return `<div class="kv"><span>Drilled metres (counts)</span><b id="${id}Drill">${fm(x.drill)} m</b></div>
   <div class="kv"><span>Directional credit (${fm(x.dir)} h × 3)</span><b id="${id}Cred">${fm(x.cred)} m</b></div>
+  ${x.reamAdd?`<div class="kv"><span>Reamed metres (counted – Settings)</span><b id="${id}Ream">${fm(x.reamAdd)} m</b></div>`:''}
   <div class="kv"><span><b>COUNTED TOTAL</b></span><b class="grn" id="${id}Count">${fm(x.counted)} m</b></div>
   <div class="kv"><span>Directional metres (info, doesn't count)</span><b class="mut" id="${id}DirM">${fm(x.dirM)} m</b></div>`}
 function recentCard(){
  const days=sortedDays().slice(0,3);if(!days.length)return'';
- return `<div class="card"><h2>Recent shifts</h2>${days.map(d=>{const c=dayCalc(d);return `<div class="li"><div class="x"><b>${nice(d.date)} · ${esc(d.hole||'')}${d.covered?' <span class="pill">COVERED</span>':''}</b><span class="mut sm">${esc(d.driller||'')} · ${fm(c.mine.counted)} m counted · ${th(c.total)||0} hrs</span></div><button class="btn ghost sm" data-a="openDay" data-v="${d.id}">View</button></div>`}).join('')}</div>`;
+ return `<div class="card"><h2>Recent shifts</h2>${days.map(d=>{const c=dayCalc(d);return `<div class="li"><div class="x"><b>${nice(d.date)} · ${esc(d.hole||'')}${d.covered?' <span class="pill">COVERED</span>':''}${d.backfilled?' <span class="pill bf">BACKFILLED</span>':''}</b><span class="mut sm">${esc(d.driller||'')} · ${fm(c.mine.counted)} m counted · ${th(c.total)||0} hrs</span></div><button class="btn ghost sm" data-a="openDay" data-v="${d.id}">View</button></div>`}).join('')}</div>`;
 }
 const PH={latch:['LATCHING TUBE','ph-latch','✔ Latched → start drilling'],drill:['DRILLING','ph-drill','✔ Run done → pull tube'],pull:['PULLING TUBE','ph-pull','✔ Tube out → finish run'],pause:['PAUSED','ph-pause','▶ Resume']};
 function vTimer(){
  const d=D();if(!d)return needDay();
- let h='';
+ let h=hitchBar(d.date||workDate());
  if(!S.run){
   const from=dayDepth(d),len=+S.settings.runLen||3;
   h+=`<div class="card c"><h2>${len} m run timer</h2>
@@ -541,6 +679,8 @@ function vTimer(){
   </div>`;
  }
  h+=runningActsCard();
+ h+=bitAlertHtml(d);
+ h+=paceCard(d);
  const runs=(d.runs||[]);
  if(runs.length){const sx=stats([d]);
   h+=`<div class="card"><h2>This shift's runs (${runs.length})</h2>
@@ -557,15 +697,16 @@ function runningActsCard(){
   const paused=isActPaused(a),pms=pausedMs(a.pauses);
   return `<div class="card run-live${paused?' run-paused':''}"><div class="phase ${paused?'ph-pause':'ph-pull'}">${paused?'⏸ PAUSED · ':''}${ACTS[a.type]?.ic||''} ${esc(ACTS[a.type]?.n||a.type).toUpperCase()}</div><div class="big">${fdur(actElapsedMs(a))}</div><div class="c mut sm">${paused?'elapsed (pauses not counted) · ':''}started ${hm(a.s)} ${actDesc(a)}</div>${pms?`<div class="c mut sm${paused?' red':''}">${paused?'⏸ PAUSED · ':''}Paused time (not counted): ${fdur(pms)}</div>`:''}<div class="row">${paused?`<button class="btn huge grn" data-a="resumeAct" data-v="${a.id}">▶ RESUME</button>`:`<button class="btn huge ghost" data-a="pauseAct" data-v="${a.id}">⏸ PAUSE</button>`}</div>${a.type!=='breakdown'&&!hasLiveBreakdown()?`<button class="btn red glove" data-a="breakdown" data-v="${a.id}">💥 BREAKDOWN</button>`:''}<button class="btn huge red" data-a="stopAct" data-v="${a.id}">⏹ STOP</button></div>`}).join('');
 }
-function actDesc(a){const f=a.f||{},p=[];if(f.from!=null||f.to!=null)p.push(`${fm(f.from)}→${fm(f.to)} m`);if(f.depth!=null)p.push(`@ ${fm(f.depth)} m`);if(f.tool)p.push(f.tool);if(f.count)p.push(`${f.count} rods`);if(f.eos)p.push('E.O.S.');if(f.desc)p.push(f.desc);if(a.notes)p.push('“'+a.notes+'”');return esc(p.join(' · '))}
+function actDesc(a){const f=a.f||{},p=[];if(f.from!=null||f.to!=null)p.push(`${fm(f.from)}→${fm(f.to)} m`);if(f.depth!=null)p.push(`@ ${fm(f.depth)} m`);if(f.tool)p.push(f.tool);if(f.count)p.push(`${f.count} rods`);if(f.passes)p.push(plural(f.passes,'pass','passes'));if(f.eos)p.push('E.O.S.');if(f.desc)p.push(f.desc);if(a.notes)p.push('“'+a.notes+'”');return esc(p.join(' · '))}
 function vLog(){
  const d=D();if(!d)return needDay();
  const cb=curBit('bit'),cs=curBit('shell');
  const quick=String(S.settings.quick||'').split(',').map(x=>x.trim()).filter(Boolean);
  const bn=b=>esc([b.type,b.serial?'#'+b.serial:''].filter(Boolean).join(' '));
- return runningActsCard()+`
+ return hitchBar(d.date||workDate())+runningActsCard()+`
  <div class="card"><h2>Start an activity</h2><div class="agrid">${Object.entries(ACTS).map(([k,v])=>`<button class="btn" data-a="startAct" data-v="${k}"><span>${v.ic}</span>${esc(v.n)}</button>`).join('')}</div>
- <p class="mut sm">Starting an activity pauses a running core run; stopping it resumes the run.</p></div>
+ <p class="mut sm">Starting an activity pauses a running core run; stopping it resumes the run.</p>
+ <button class="btn blu" data-a="rodCount" id="rodCountBtn">🔢 Rod count on deck</button></div>
  <div class="card"><h2>Bits & shells</h2>
   <div class="kv"><span>Bit in hole</span><b>${cb?bn(cb)+` · ${fm(cb.m)} m`:'—'}</b></div>
   <div class="kv"><span>Shell in hole</span><b>${cs?bn(cs)+` · ${fm(cs.m)} m`:'—'}</b></div>
@@ -581,12 +722,13 @@ function vLog(){
 function timeline(d,ro){
  const it=[];(d.runs||[]).forEach((r,i)=>it.push({s:r.segs[0].s,h:runLi(r,i+1,d,ro)}));
  (d.acts||[]).forEach(a=>it.push({s:a.s||0,h:`<div class="li"><div class="x"><b>${ACTS[a.type]?.ic||''} ${esc(ACTS[a.type]?.n||a.type)} <span class="amb">${a.e||a.hrs!=null?fh(actH(a))+' h':(isActPaused(a)?'PAUSED '+fdur(actElapsedMs(a)):'running '+fdur(actElapsedMs(a)))}</span></b><span class="mut sm">${a.s?hm(a.s):''}${a.hrs!=null?' (manual)':''}${pausedMs(a.pauses)&& (a.e||a.hrs!=null)?' · paused '+fdur(pausedMs(a.pauses,a.e||Date.now())):''} ${actDesc(a)}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editAct" data-v="${a.id}" data-d="${d.id}">✎</button>`}</div>`}));
+ (d.rodCounts||[]).forEach(rc=>it.push({s:rc.t||0,h:`<div class="li"><div class="x"><b>🔢 Rod count <span class="${Math.abs(rc.diff||0)<0.05?'grn':'red'}">${esc(rcVerdict(rc)||'')}</span></b><span class="mut sm">${rc.t?hm(rc.t):''} ${esc(rcText(rc))}${trimNote(rc.notes)?' · “'+esc(rc.notes)+'”':''}${rc.actId?' · with rod pull':''}</span></div></div>`}));
  it.sort((a,b)=>a.s-b.s);return it.map(x=>x.h).join('')||'<p class="mut sm">Nothing logged yet</p>';
 }
 function extraRows(B){return Object.keys(B).filter(k=>!BUCKETS.includes(k)&&B[k].h)}
 function reportText(d){
  const c=dayCalc(d),B=c.B,bi=bitSummary(d,'bit'),sh=bitSummary(d,'shell'),pd=(s,n)=>String(s).padEnd(n);
- const L=[`${String(S.settings.company).toUpperCase()} – SHIFT REPORT`,`Hole No: ${d.hole||''}   Job No: ${d.job||''}`,`Date: ${d.date||''}   ${d.shift||''} shift   Size: ${d.size||''}`,`Driller: ${d.driller||''}${d.covered?' (covered)':''}   Helper: ${d.helper||''}`,'',
+ const L=[`${String(S.settings.company).toUpperCase()} – SHIFT REPORT`,`Hole No: ${d.hole||''}   Job No: ${d.job||''}`,`Date: ${d.date||''}   ${d.shift||''} shift   Size: ${d.size||''}`,`Drill: ${drillLabel(d)}`,`Driller: ${d.driller||''}${d.covered?' (covered)':''}   Helper: ${helperOut(d)}`,'',
   pd('',16)+pd('From',9)+pd('To',9)+pd('Total',9)+'Hours'];
  FT_ROWS.forEach(k=>{const o=B[k];L.push(pd(k,16)+pd(fm(o.from),9)+pd(fm(o.to),9)+pd(o.m?fm(o.m):(k==='Testing'&&o.n?o.n+' test'+(o.n>1?'s':''):''),9)+th(o.h))});
  L.push('');HR_ROWS.concat(extraRows(B)).forEach(k=>L.push(pd(k,22)+th(B[k].h)));
@@ -600,7 +742,8 @@ function reportHTML(d){
  return `<div class="report" id="rep"><h3>${esc(String(S.settings.company).toUpperCase())} – SHIFT REPORT</h3>
  <table><tr><td class="lbl">Hole No</td><td>${esc(d.hole)}</td><td class="lbl">Job No</td><td>${esc(d.job)}</td></tr>
  <tr><td class="lbl">Date</td><td>${esc(d.date)}</td><td class="lbl">Day/Night</td><td>${esc(d.shift)}</td></tr>
- <tr><td class="lbl">Driller</td><td>${esc(d.driller)}${d.covered?' (covered)':''}</td><td class="lbl">Helper</td><td>${esc(d.helper)}</td></tr>
+ <tr><td class="lbl">Driller</td><td>${esc(d.driller)}${d.covered?' (covered)':''}</td><td class="lbl">Helper</td><td>${esc(helperOut(d))}</td></tr>
+ <tr><td class="lbl">Drill</td><td colspan="3">${esc(drillLabel(d))}</td></tr>
  <tr><td class="lbl">Size</td><td>${esc(d.size)}</td><td class="lbl">Total hrs</td><td><b>${th(c.total)}</b></td></tr></table>
  <table><tr><th></th><th>From</th><th>To</th><th>Total</th><th>Hours</th></tr>
  ${FT_ROWS.map(k=>{const o=B[k];return `<tr><td class="lbl">${k}</td><td class="n">${fm(o.from)}</td><td class="n">${fm(o.to)}</td><td class="n">${o.m?fm(o.m):(k==='Testing'&&o.n?o.n:'')}</td><td class="n">${th(o.h)}</td></tr>`}).join('')}</table>
@@ -613,24 +756,27 @@ function reportHTML(d){
 function vReport(){
  const d=D();if(!d)return needDay();
  const c=dayCalc(d),sl=+S.settings.shiftLen||12,logged=S.settings.travelInShift?c.total:c.total-(d.travel||0),gap=sl-logged;
- return `${Math.abs(gap)>=inc()?`<div class="warn noprint">Logged ${th(logged)||0} of ${sl} hrs${S.settings.travelInShift?' (incl. travel)':''} → ${gap>0?th(gap)+' hrs unaccounted':th(-gap)+' hrs over'}.</div>`:''}
+ return `${c.mine.noFtAsk?`<div class="warn noprint" id="repNoFt">⚠ Extra Total is unconfirmed (counted in full for now). <button class="btn ghost sm" data-a="tab" data-v="shift">Tap to answer</button></div>`:''}${Math.abs(gap)>=inc()?`<div class="warn noprint">Logged ${th(logged)||0} of ${sl} hrs${S.settings.travelInShift?' (incl. travel)':''} → ${gap>0?th(gap)+' hrs unaccounted':th(-gap)+' hrs over'}.</div>`:''}
  <div class="card">${reportHTML(d)}</div>
  <div class="card noprint"><h2>General comments</h2>
  <label>Auto-built from your timers; edit freely<textarea id="cmt" data-b="comments" rows="8">${esc(d.comments??buildComments(d))}</textarea></label>
  <button class="btn ghost sm" data-a="rebuildCmt">↻ Rebuild auto comments</button></div>
- <div class="noprint"><button class="btn" data-a="copyReport">📋 Copy report text</button><button class="btn ghost" data-a="print">🖨 Print / save PDF</button>
+ <div class="noprint">${S.settings.showCrewInShare||!crewStr(d)?'':`<p class="mut sm" id="repCrewHidden">Helper names are left out of the printed / shared report (Settings → Show crew names when sharing).</p>`}<button class="btn" data-a="copyReport">📋 Copy report text</button><button class="btn blu" data-a="shareReport" id="shareReport">📤 Share report</button><button class="btn ghost" data-a="print">🖨 Print / save PDF</button>
  ${endShiftBtn()}</div>`;
 }
 function vDays(){
  if(viewDay&&S.days[viewDay])return vDayDetail(S.days[viewDay]);
  const days=sortedDays();
- return `<div class="card"><h2>All shifts (${days.length})</h2>${days.map(d=>{const c=dayCalc(d),hi=hitchInfo(d.date);return `<div class="li"><div class="x"><b>${nice(d.date)} ${d.id===S.cur?'<span class="pill">OPEN</span>':''}${d.covered?' <span class="pill">COVERED</span>':''}</b><span class="mut sm">${esc(d.driller||'')} · ${esc(d.hole||'')} · ${fm(c.mine.counted)} m counted · ${(d.runs||[]).length} runs · ${th(c.total)||0} h${hi&&hi.on?' · hitch day '+hi.day:''}${trimNote(d.notes)?' · “'+esc(d.notes.length>80?d.notes.slice(0,77)+'…':d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="openDay" data-v="${d.id}">View</button></div>`}).join('')||'<p class="mut">No shifts yet</p>'}</div>`;
+ let bfp=null;try{bfp=localStorage.getItem(BF_PREV)}catch(e){}
+ return `<button class="btn blu" data-a="tab" data-v="backfill" id="bfOpen">＋ Add past shifts (quick-add)</button>${bfp!=null?`<button class="btn ghost" data-a="bfUndo" id="bfUndo">↩ Undo last bulk add</button>`:''}<div class="card"><h2>All shifts (${days.length})</h2>${days.map(d=>{const c=dayCalc(d),hi=hitchInfo(d.date);return `<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift||'')} ${d.id===S.cur?'<span class="pill">OPEN</span>':''}${d.covered?' <span class="pill">COVERED</span>':''}${d.backfilled?' <span class="pill bf">BACKFILLED</span>':''}${mineCalc(d).noFtAsk?' <span class="pill red">CHECK</span>':''}</b><span class="mut sm">${esc(d.driller||'')}${crewStr(d)?' / '+esc(crewStr(d)):''} · ${esc(d.hole||'')} · ${fm(c.mine.counted)} m counted · ${(d.runs||[]).length} runs · ${th(c.total)||0} h${hi&&hi.on?' · hitch day '+hi.day:''}${trimNote(d.notes)?' · “'+esc(d.notes.length>80?d.notes.slice(0,77)+'…':d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="openDay" data-v="${d.id}">View</button></div>`}).join('')||'<p class="mut">No shifts yet</p>'}</div>`;
 }
 function vDayDetail(d){
  const c=d.cross||{},sx=stats([d]);
  return `<button class="btn ghost noprint" data-a="closeDay">← All shifts</button>
- <div class="card"><h2>${nice(d.date)} · ${esc(d.hole||'')}</h2>
+ <div class="card"><h2>${nice(d.date)} · ${esc(d.hole||'')}${d.backfilled?' <span class="pill bf">BACKFILLED</span>':''}</h2>
   <div class="kv"><span>Driller</span><b>${esc(d.driller||'—')}${d.covered?' (covered)':''}</b></div>
+  <div class="kv"><span>Crew</span><b id="ddCrew">${esc(crewStr(d)||'—')}</b></div>
+  ${mineCalc(d).noFtAsk?`<div class="warn">⚠ Extra Total unconfirmed (counted in full). Open to edit and answer on the Shift tab.</div>`:''}
   ${sumKv(mineCalc(d),'dd')}
   <div class="kv"><span>Depth</span><b>${fm(d.startDepth)} → ${fm(dayDepth(d))} m</b></div>
   <div class="kv"><span>Runs · avg · best · worst</span><b>${sx.n} · ${fdur(sx.avg)} · ${fdur(sx.best)} · ${fdur(sx.worst)}</b></div>
@@ -654,7 +800,7 @@ function aggCard(title,days,nav){
  return `<div class="card"><h2>${title}</h2>${nav||''}
   <div class="kv"><span>Shifts logged</span><b>${o.days}</b></div>
   <h3>My shifts</h3>
-  ${sumKv({drill:o.coredM,dir:o.dir,cred:o.cred,counted:o.counted,dirM:o.dirM},'a')}
+  ${sumKv({drill:o.coredM,dir:o.dir,cred:o.cred,counted:o.counted,dirM:o.dirM,reamAdd:o.reamAdd},'a')}
   <div class="kv"><span>Runs (directional) · blocks</span><b>${o.runs} (${o.dirRuns}) · ${o.blocks}</b></div>
   <div class="kv"><span>Avg per full run</span><b>${fdur(sx.avg)}</b></div>
   <div class="kv"><span>Rod trips (rods)</span><b>${o.rodPulls} (${o.rods})</b></div>
@@ -673,13 +819,13 @@ function aggCard(title,days,nav){
 function vTotals(){
  const p=periodAt(perOff),pd=daysIn(p.start,p.end);
  const nav=`<div class="row noprint" style="margin-bottom:8px"><button class="btn ghost sm" data-a="per" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center"><b>${nice(p.start)} – ${nice(p.end)}</b></div><button class="btn ghost sm" data-a="per" data-v="1">▶</button></div>`;
- let h=aggCard('Pay period',pd,nav);
+ let h=`<button class="btn blu" data-a="tab" data-v="stats" id="statsOpen">👥 Me vs cross shift stats</button>`+aggCard('Pay period',pd,nav);
  const hi=hitchInfo(workDate());
- if(!hi)h+=`<div class="card"><h2>Hitch (28 on / 14 off)</h2><p class="mut">Set your hitch start date to track day X of 28.</p><div class="g2">${inp('hitchStart','First day of a hitch','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
+ if(!hi)h+=`<div class="card"><h2>Hitch (${+S.settings.hitchOn||28} on / ${S.settings.hitchOff??14} off)</h2><p class="mut">Set your hitch start date to track day X of 28.</p><div class="g2">${inp('hitchStart','First day of a hitch','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
   ${inp('shiftCutoff','Night shift counts as yesterday until','select',{s:true,opts:Array.from({length:24},(_,h)=>[h,String(h).padStart(2,'0')+':00'])})}</div>`;
  else{
-  const hs=addDays(hi.start,hitchOff*42),he=addDays(hs,27);
-  const status=hi.on?`<div class="big amb" style="font-size:44px">Day ${hi.day} of 28</div><div class="c mut">Last day ${nice(hi.end)} · ${28-hi.day} days left</div>`:`<div class="big grn" style="font-size:40px">Off · day ${hi.day} of 14</div><div class="c mut">Back on ${nice(hi.back)}</div>`;
+  const hs=addDays(hi.start,hitchOff*hi.cyc),he=addDays(hs,hi.len-1),ht=hitchText(workDate());
+  const status=`<div class="big ${hi.on?'amb':'grn'}" style="font-size:30px">${esc(ht.txt)}</div><div class="c mut">${hi.schedOn?`Day ${hi.day} of ${hi.len} · last day ${nice(hi.end)}`:`Off day ${hi.day} of ${hi.offLen} · back on ${nice(hi.back)}`}</div>`;
   const nav2=`${hitchOff===0?status:''}<div class="row noprint" style="margin:8px 0"><button class="btn ghost sm" data-a="hitch" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center"><b>${nice(hs)} – ${nice(he)}</b></div><button class="btn ghost sm" data-a="hitch" data-v="1">▶</button></div>`;
   h+=aggCard('Hitch',daysIn(hs,he),nav2);
  }
@@ -704,13 +850,26 @@ function vTotals(){
 function vSettings(){
  const opts=BUCKETS.filter(b=>b!=='Coring'&&b!=='Travel'&&b!=='Directional');
  return `<div class="card"><h2>Settings</h2>
- ${inp('driller','Your name (default driller on a new shift)','text',{s:true})}${inp('company','Company','text',{s:true})}
+ ${inp('driller','Your name (default driller on a new shift)','text',{s:true})}
+ ${inp('myName','Your name for stats (shifts with this driller are yours)','text',{s:true})}
+ <div class="g2">${inp('drillType','Drill type (new shifts)','text',{s:true})}${inp('drillNumber','Drill number (new shifts)','text',{s:true})}</div>${inp('company','Company','text',{s:true})}
  <div class="g2">${inp('shift','Default shift','select',{s:true,opts:['Night','Day']})}${inp('size','Default size','select',{s:true,opts:['NQ','HQ','BQ','PQ','NQ3','HQ3']})}</div>
  <div class="g2">${inp('runLen','Run length (m)','num',{s:true})}${inp('shiftLen','Shift length (h)','num',{s:true})}</div>
  <div class="g2">${inp('travel','Daily travel (h)','num',{s:true})}${inp('preop','Daily pre-op (h)','num',{s:true})}</div>
  ${inp('round','Round report hours to','select',{s:true,opts:[0.1,0.25,0.5]})}
  ${inp('travelInShift','Travel counts inside the shift length','check',{s:true})}
- <div class="g2">${inp('hitchStart','Hitch start date (any first day of a 28-on)','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
+ <div class="g2">${inp('hitchStart','Hitch start date (first day of a hitch)','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
+ <div class="g2">${inp('hitchOn','Days on','num',{s:true})}${inp('hitchOff','Days off','num',{s:true})}</div>
+ <button class="btn ghost sm" data-a="tab" data-v="sched" style="margin-bottom:10px">📅 Open hitch calendar</button>
+ ${inp('crewList','Crew names for helper buttons (comma separated)','text',{s:true})}
+ ${inp('paceTarget','Metres target per shift (blank = hide)','num',{s:true})}
+ <div class="g3">${inp('rodLen','Rod length (m)','num',{s:true})}${inp('barrelLen','Core barrel (m)','num',{s:true})}${inp('standSize','Rods per stand','select',{s:true,opts:[2,3]})}</div>
+ ${inp('barrelOn','Count the core barrel in rod count','check',{s:true})}
+ ${inp('showCrewInShare','Show crew names when sharing / printing','check',{s:true})}
+ ${inp('reamCountsAsDrilled','Count reamed metres as drilled metres','check',{s:true})}
+ <h3>Bit alerts</h3>
+ ${inp('bitAlertsOn','Bit alerts on','check',{s:true})}
+ <div class="g2">${inp('slowPct','Slow alert: % slower than the bit\'s average','num',{s:true})}${inp('bitLifeM','Bit life alert at (m, blank = off)','num',{s:true})}</div>
  ${inp('shiftCutoff','Night shift counts as yesterday until','select',{s:true,opts:Array.from({length:24},(_,h)=>[h,String(h).padStart(2,'0')+':00'])})}
  ${inp('autoNext','Auto-start next run when tube is out','check',{s:true})}
  ${inp('wake','Keep screen awake while app is open','check',{s:true})}
@@ -724,6 +883,7 @@ function vSettings(){
  <button class="btn" data-a="exportJSON">⬇ Export backup (JSON)</button>
  <button class="btn ghost" data-a="importJSON">⬆ Import backup</button>
  ${driveCard()}
+ ${undoCards()}
  <div class="row"><button class="btn ghost sm" data-a="csv" data-v="days">CSV days</button><button class="btn ghost sm" data-a="csv" data-v="runs">CSV runs</button><button class="btn ghost sm" data-a="csv" data-v="acts">CSV activities</button></div>
  <button class="btn red" data-a="wipe" style="margin-top:14px">Delete ALL data</button></div>`;
 }
@@ -738,10 +898,10 @@ function armBreakdown(a,ts=Date.now()){
  if(S.run){const pausedByUs=pauseRun(ts);const s=curSeg();const owned=runningActs().some(({a:x})=>x.id!==a.id&&x.resumeRun&&!x.e&&x.hrs==null);
   if((pausedByUs||(s&&s.t==='pause'))&&!owned){a.resumeRun=true;toast('Run paused')}}
 }
-function startRunAt(from,ts=Date.now()){const d=D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
+function startRunAt(from,ts=Date.now()){const d=D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:(d.bitId!=null&&String(d.bitId).trim())?String(d.bitId).trim():null,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
 function newDayObj(){
- const last=lastDay();const defShift=S.settings.hitchShift||S.settings.shift;const date=workDate();
- const d={id:uid(),date,shift:defShift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:last?.helper||'',
+ const last=lastDay();const date=workDate();const defShift=schedType(date);const lc=Array.isArray(S.settings.lastCrew)?S.settings.lastCrew:[];
+ const d={id:uid(),date,shift:defShift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:lc[0]||last?.helper||'',helper2:lc[1]||'',drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||''),bitId:last?.bitId??null,rodCounts:[],backfilled:false,endedAt:null,bfHours:null,
   startDepth:last?dayDepth(last):null,curDepth:null,travel:+S.settings.travel||0,preop:+S.settings.preop||0,dir:0,cross:{},runs:[],acts:[],bits:[],cons:[],reportNotes:'',notes:'',comments:null,created:Date.now()};
  S.days[d.id]=d;S.cur=d.id;return d;
 }
@@ -827,7 +987,8 @@ const A={
   a.f=a.f||{};actFieldKeys(a.type,a.f).forEach(k=>{if(v[k]!==null&&v[k]!==''&&v[k]!==false)a.f[k]=v[k];else delete a.f[k]});a.notes=v.notes||'';endActPause(a,ts);a.e=ts;
   (a.resumeActs||[]).forEach(id=>{const found=runningActs().find(x=>x.a.id===id);if(found)endActPause(found.a,ts)});
   if(a.resumeRun&&S.run&&curSeg().t==='pause'){resumeRun(ts);toast('Run resumed')}
-  save();render()},
+  save();render();
+  if(a.type==='rodpull')return rodCountSheet(found.d,a)}, // v6: count the rods on deck after a trip out
  pauseAct(el){const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;beginActPause(found.a);save();render()},
  resumeAct(el){const found=runningActs().find(x=>x.a.id===el.dataset.v);if(!found)return;endActPause(found.a);save();render()},
  async editAct(el){const d=S.days[el.dataset.d],a=d&&d.acts.find(x=>x.id===el.dataset.v);if(!a)return;const def=ACTS[a.type];
@@ -840,12 +1001,13 @@ const A={
   if(v.hrs!=null&&Math.abs(v.hrs-r2(actH(a)))>0.004)a.hrs=v.hrs;save();render()},
  async bitChange(el){const kind=el.dataset.v;let d=D();if(!d)d=newDayObj();const cb=curBit(kind);
   const v=await ask(kind==='shell'?'Shell change':'Bit change',[{k:'depth',l:'Depth (m)',t:'num',v:dayDepth(d)},{k:'off',l:'Serial coming OFF (blank if none)',t:'text',v:cb?.serial||''},{k:'type',l:'New '+kind+' type / series',t:'text',v:cb?.type||(kind==='bit'?'Hayden 11':'')},{k:'serial',l:'New serial #',t:'text'},{k:'notes',l:'Notes',t:'text'}],{focus:false});
-  if(!v)return;d.bits.push({kind,depth:v.depth,offSerial:v.off||'',onType:v.type||'',onSerial:v.serial||'',notes:v.notes||'',t:Date.now()});save();render()},
+  if(!v)return;d.bits.push({kind,depth:v.depth,offSerial:v.off||'',onType:v.type||'',onSerial:v.serial||'',notes:v.notes||'',t:Date.now()});if(kind==='bit'&&(v.serial||v.type))d.bitId=String(v.serial||v.type).trim();save();render()},
  async delBit(el){if(await confirmBox('Delete this bit/shell entry?')){D().bits.splice(+el.dataset.v,1);save()}render()},
  async addCons(el){let item=el.dataset.v;const v=await ask(item||'Consumable',[...(item?[]:[{k:'item',l:'Item',t:'text'}]),{k:'qty',l:'Quantity',t:'num',v:1},{k:'notes',l:'Notes',t:'text'}],{ok:'Add',focus:!item});if(!v)return;item=item||v.item;if(!item)return;let d=D();if(!d)d=newDayObj();d.cons.push({item,qty:v.qty||1,notes:v.notes||''});save();render()},
  async delCons(el){if(await confirmBox('Remove this item?','Remove')){D().cons.splice(+el.dataset.v,1);save()}render()},
  rebuildCmt(){D().comments=null;save();render()},
  copyReport(){copyText(reportText(D()))},
+ shareReport(){const d=D();if(!d)return;return shareText('Shift report '+(d.date||''),reportText(d))},
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
@@ -857,9 +1019,37 @@ const A={
  scope(el){statScope=el.dataset.v;render()},
  exportJSON(){download(`drill-backup-${todayStr()}.json`,JSON.stringify(exportData(),null,1),'application/json')},
  mineExcl(el){const d=D();if(!d)return;if(!d.mine||typeof d.mine!=='object')d.mine={};const v=el.dataset.v;d.mine.totalExcludesTimed=v==='yes'?true:v==='no'?false:null;save();render()},
- async endShift(){buzz();if(!driveConfigured()){toast('Shift saved on this phone. Drive backup not set up yet');return}
-  if(S.run||runningActs().length){if(!await ask('A timer is still running. Back up anyway?',[],{ok:'Back up anyway',msg:'Cancel keeps timing and does not back up.'})){toast('Not backed up – timer still running');return}}
+ async endShift(){buzz();const d=D();if(!d){toast('No shift open');return}
+  // v6: end-of-shift wrap-up first, then (if set up) the Drive backup step
+  const v=await ask('End of shift',[{k:'notes',l:'Notes for the report (one per line)',t:'textarea',v:d.reportNotes||''}],{msg:wrapHtml(d),ok:'✔ Done',focus:false});
+  if(!v)return;d.reportNotes=v.notes||'';d.endedAt=Date.now();save();render();
+  if(!driveConfigured()){toast('Shift wrapped up. Drive backup not set up yet');return}
+  if(S.run||runningActs().length){if(!await ask('A timer is still running. Back up anyway?',[],{ok:'Back up anyway',danger:true,msg:'Cancel keeps timing and does not back up.'})){toast('Not backed up – timer still running');return}}
   return driveBackup('end shift')},
+ pickCrew(el){const d=D();if(!d)return;const slot=el.dataset.slot==='helper2'?'helper2':'helper',n=el.dataset.v,other=slot==='helper'?'helper2':'helper';
+  d[slot]=String(d[slot]||'').trim().toLowerCase()===n.toLowerCase()?'':n;if(d[slot]&&String(d[other]||'').toLowerCase()===n.toLowerCase())d[other]='';
+  S.settings.lastCrew=[d.helper||'',d.helper2||''];save();render()},
+ rodCount(){const d=D();if(!d){toast('No shift open');return}return rodCountSheet(d,null)},
+ setHitch(el){return setHitchFlow(el&&el.dataset&&el.dataset.v||null)},
+ schedDay(el){return schedDay(el.dataset.v)},
+ schedYr(el){schedYear=(schedYear||+workDate().slice(0,4))+(+el.dataset.v);render()},
+ async unanchor(el){const f=el.dataset.v;if(!await confirmBox(`Remove the new hitch start from ${nice(f)}? Days from then go back to the earlier pattern.`,'Remove'))return;S.settings.rotaAnchors=(S.settings.rotaAnchors||[]).filter(a=>a.from!==f);save();render()},
+ bfAdd(){bfRows.push(bfNewRow());render()},
+ bfCopy(){const last=bfRows[bfRows.length-1];bfRows.push(last?Object.assign({},last,{date:isDate(last.date)?addDays(last.date,1):last.date,helpers:(last.helpers||[]).slice()}):bfNewRow());render()},
+ bfDel(el){bfRows.splice(+el.dataset.v,1);if(!bfRows.length)bfRows.push(bfNewRow());render()},
+ bfSave(){return bfPreview()},
+ bfBack(){bfStage='edit';render()},
+ bfConfirm(){return bfSave()},
+ bfHelp(el){const r=bfRows[+el.dataset.i];if(!r)return;const n=el.dataset.v;r.helpers=Array.isArray(r.helpers)?r.helpers:[];const i=r.helpers.findIndex(x=>x.toLowerCase()===n.toLowerCase());if(i>=0)r.helpers.splice(i,1);else r.helpers.push(n);render()},
+ bfCross(el){const r=bfRows[+el.dataset.v];if(!r)return;const me=bfIsMe(r);if(me){r.driller='';r.shift=r.shift==='Day'?'Night':'Day';r.helpers=[]}else{r.driller=myName();r.shift=r.shift==='Day'?'Night':'Day'}render()},
+ crossDel(el){return crossDel(el.dataset.v)},
+ statF(el){statF=el.dataset.v;render()},
+ statPrint(el){statPrintOn=el.dataset.v==='1';window.scrollTo(0,0);render()},
+ doPrint(){window.print()},
+ statShare(){return shareText('Me vs cross shift',statsText(statsData(statRange())))},
+ bitDismiss(el){return bitDismiss(el.dataset.v)},
+ pre6Undo(){return pre6Undo()},
+ bfUndo(){return bfUndo()},
  keepRestore(){return keepRestore()},
  driveBackup(){return driveBackup('manual')},
  driveRestore(){return driveRestore()},
@@ -873,7 +1063,7 @@ const A={
   else{rows=[['date','hole','type','report_line','start','end','hours','from_m','to_m','depth_m','count','tool','desc','eos','notes']];
    days.forEach(d=>(d.acts||[]).forEach(a=>{const f=a.f||{};rows.push([d.date,d.hole,ACTS[a.type]?.n||a.type,S.settings.map[a.type],a.s?new Date(a.s).toLocaleString():'',a.e?new Date(a.e).toLocaleString():'',r2(actH(a)),f.from,f.to,f.depth,f.count,f.tool,f.desc,f.eos?'yes':'',a.notes])}))}
   download(`drill-${k}-${todayStr()}.csv`,csv(rows),'text/csv')},
- async wipe(){if(await confirmBox('Delete ALL shifts and settings? Export a backup first!','Delete everything')&&await confirmBox('Really delete everything?','Yes, wipe')){localStorage.removeItem(KEY);load();render();toast('All data deleted')}}
+ async wipe(){if(await confirmBox('Delete ALL shifts and settings on this phone, including the restore undo copy, the bulk-add undo copy and the pre-v6 copy? Export a backup first!','Delete everything')&&await confirmBox('Really delete everything?','Yes, wipe')){[KEY,PREV_KEY,PREV_META,BF_PREV,BF_META,PRE6_KEY,PRE6_META,PRE6_CUR].forEach(k=>{try{localStorage.removeItem(k)}catch(e){}});load();render();toast('All data deleted')}}
 };
 async function finishRun(ts,early){
  const r=S.run;if(!r)return;const last=r.pieces[r.pieces.length-1];
@@ -956,8 +1146,8 @@ async function driveBackup(why){
   if(files.length){let nc=fileCounts(files[0]);if(!nc){try{const j=await driveGet(files[0].id);nc=dataCounts(j.data)}catch(e){nc=null}}
    if(!validCounts(nc))nc=null;
    const lc=dataCounts(S);let msg=null;
-   if(!nc)msg=`Couldn't read what's in your newest Drive backup, so the app can't check it has no more shifts than your phone. Overwrite anyway?<br>Phone: ${lc.days} shifts · ${lc.runs} runs · ${fm(lc.m)} m counted.`;
-   else if(lc.days===0||lc.days<+nc.days||lc.runs<+nc.runs||lc.m<+nc.m-0.001)msg=`Your phone has fewer shifts than your Drive backup. Overwrite anyway?<br>Phone: ${lc.days} shifts · ${lc.runs} runs · ${fm(lc.m)} m counted<br>Drive: ${+nc.days} shifts · ${+nc.runs} runs · ${fm(+nc.m)} m counted${nc.lastDate?' (last '+esc(nc.lastDate)+')':''}.`;
+   if(!nc)msg=`Couldn't read what's in your newest Drive backup, so the app can't check it has no more shifts than your phone. Overwrite anyway?<br>Phone: ${plural(lc.days,'shift')} · ${plural(lc.runs,'run')} · ${fm(lc.m)} m counted.`;
+   else if(lc.days===0||lc.days<+nc.days||lc.runs<+nc.runs||lc.m<+nc.m-0.001)msg=`Your phone has fewer shifts than your Drive backup. Overwrite anyway?<br>Phone: ${plural(lc.days,'shift')} · ${plural(lc.runs,'run')} · ${fm(lc.m)} m counted<br>Drive: ${plural(+nc.days,'shift')} · ${plural(+nc.runs,'run')} · ${fm(+nc.m)} m counted${nc.lastDate?' (last '+esc(nc.lastDate)+')':''}.`;
    if(msg){const yes=await ask('Overwrite Drive backup?',[],{ok:'Overwrite anyway',danger:true,msg});
     if(!yes){toast('Backup skipped – Drive copy kept');return false}}}
   await driveUpload();
@@ -975,7 +1165,7 @@ async function driveRestore(){
   const files=(await driveList()).slice(0,DRV_KEEP);
   if(!files.length){toast('No Drive backups found');return}
   const info=[];for(const f of files){let c=fileCounts(f);if(!c){try{const j=await driveGet(f.id);c=Object.assign({savedAt:j.savedAt},dataCounts(j.data))}catch(e){c=null}}info.push({f,c})}
-  const lab=({f,c})=>{const st=(c&&c.savedAt)||nameTime(f.name)||f.createdTime,t=st?new Date(st):null;return `${t&&!isNaN(t)?nice(todayStr(t))+' '+hm(t):f.name} · ${c?c.days+' shifts':'? shifts'}${c&&c.lastDate?' · last shift '+nice(c.lastDate):''}`};
+  const lab=({f,c})=>{const st=(c&&c.savedAt)||nameTime(f.name)||f.createdTime,t=st?new Date(st):null;return `${t&&!isNaN(t)?nice(todayStr(t))+' '+hm(t):f.name} · ${c?plural(c.days,'shift'):'? shifts'}${c&&c.lastDate?' · last shift '+nice(c.lastDate):''}`};
   drv.busy=false;
   const v=await ask('Restore from Google Drive',[{k:'id',l:'Pick a backup',t:'select',v:files[0].id,o:info.map(x=>[x.f.id,lab(x)])}],{ok:'Next',focus:false});
   if(!v||!v.id)return;picked=info.find(x=>x.f.id===v.id);if(!picked)return;
@@ -991,22 +1181,24 @@ async function driveRestore(){
   try{const pv=raw!=null?raw:JSON.stringify(exportData());localStorage.setItem(PREV_KEY,pv);let n=null;try{n=dataCounts(JSON.parse(pv)).days}catch(e){}
    try{localStorage.setItem(PREV_META,JSON.stringify({savedAt:Date.now(),days:n}))}catch(e){}}
   catch(e){try{localStorage.removeItem(PREV_KEY)}catch(x){}toast('Could not keep a copy of current data – restore cancelled');return}}
- applyImport(file.data,'replace');toast('Restored from Google Drive ✔')}
+ applyImport(file.data,'replace');toastBig('✔ Restored from Google Drive')}
 async function undoRestore(){
  let prev=null;try{prev=localStorage.getItem(PREV_KEY)}catch(e){}
  if(prev==null){toast('Nothing to undo');return}
- if(!await confirmBox('Put back the data you had before the last restore?','Undo restore'))return;
+ const pi=prevInfo(),curN=dataCounts(S).days;
+ const umsg=`Put back your phone data from ${esc(pi.label)}${pi.days!=null?` (${plural(pi.days,'shift')})`:''} – the data from before your first restore?`+(pi.days!=null&&curN>pi.days?`<div class="warn" id="undoMore" style="margin-top:8px">⚠ Your phone now has ${plural(curN,'shift')}, more than the undo point. Undo will remove the newer work – export a backup first if you need it.</div>`:'');
+ if(!await ask('Undo restore?',[],{ok:'Undo restore',danger:true,msg:umsg}))return;
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:null;
  try{localStorage.setItem(KEY,prev);localStorage.removeItem(PREV_KEY);localStorage.removeItem(PREV_META)}catch(e){toast('Undo failed: '+e.message);return}
- load();if(keep&&S&&!S._corrupt&&Object.keys(keep).some(k=>S.settings[k]!==keep[k])){Object.assign(S.settings,keep);save()}render();toast('Restore undone ✔')}
+ load();if(keep&&S&&!S._corrupt&&Object.keys(keep).some(k=>S.settings[k]!==keep[k])){Object.assign(S.settings,keep);save()}render();toastBig('↩ Restore undone')}
 function prevInfo(){let prev=null,meta=null;try{prev=localStorage.getItem(PREV_KEY)}catch(e){}if(prev==null)return null;try{meta=JSON.parse(localStorage.getItem(PREV_META)||'null')}catch(e){meta=null}
- const t=meta&&meta.savedAt?new Date(meta.savedAt):null;return{label:t&&!isNaN(t)?nice(todayStr(t))+' '+hm(t):'before your last restore',days:meta&&meta.days!=null?meta.days:null}}
+ const t=meta&&meta.savedAt?new Date(meta.savedAt):null;return{label:t&&!isNaN(t)?nice(todayStr(t))+' '+hm(t):'before your first restore',days:meta&&meta.days!=null?meta.days:null}}
 async function keepRestore(){if(!prevInfo()){toast('No undo point');return}
  if(!await confirmBox('Keep the restored data and delete the undo point? Undo restore will no longer be possible.','Keep restored data'))return;
- try{localStorage.removeItem(PREV_KEY);localStorage.removeItem(PREV_META)}catch(e){toast('Could not delete the undo point');return}render();toast('Kept restored data ✔')}
+ try{localStorage.removeItem(PREV_KEY);localStorage.removeItem(PREV_META)}catch(e){toast('Could not delete the undo point');return}render();toastBig('✔ Kept restored data')}
 function driveCard(){
  const pi=prevInfo();
- const undo=pi?`<div class="warn" id="drvUndoInfo">↩ Undo point from ${esc(pi.label)}${pi.days!=null?` (${pi.days} shifts)`:''}: your phone data from before the first restore.</div><div class="row"><button class="btn ghost" data-a="undoRestore" id="drvUndo">↩ Undo restore</button><button class="btn ghost" data-a="keepRestore" id="drvKeep">✔ Keep restored data</button></div>`:'';
+ const undo=pi?`<div class="warn" id="drvUndoInfo">↩ Undo point from ${esc(pi.label)}${pi.days!=null?` (${plural(pi.days,'shift')})`:''}: your phone data from before the first restore.</div><div class="row"><button class="btn ghost" data-a="undoRestore" id="drvUndo">↩ Undo restore</button><button class="btn ghost" data-a="keepRestore" id="drvKeep">✔ Keep restored data</button></div>`:'';
  if(!driveConfigured())return `<h3>Google Drive backup</h3><p class="mut sm" id="drvStatus">Drive backup not set up yet</p>${undo}`;
  const L=S.settings.driveLast;
  return `<h3>Google Drive backup</h3><p class="mut sm" id="drvStatus">Backs up when you tap End shift. Last backup: <b id="drvLast">${L?nice(todayStr(new Date(L)))+' '+hm(L):'never'}</b>${S.settings.drivePending?' · <span class="amb">backup pending</span>':''}</p>
@@ -1015,29 +1207,291 @@ function driveCard(){
 function endShiftBtn(){return `<button class="btn grn" data-a="endShift" id="endShift">🏁 End shift${driveConfigured()?' · back up to Drive':''}</button>`}
 window.addEventListener('online',()=>{if(driveConfigured()&&S&&S.settings&&S.settings.drivePending&&tokenOk()&&!drv.busy&&$('#modal').hidden)driveBackup('online')});
 
+/* ===== v6: rod count on deck ===== */
+function rodCountSheet(d,act){return new Promise(res=>{
+ const st=S.settings,f=(act&&act.f)||{};const o={per:+st.standSize===3?3:2,stands:0,singles:0,rodLen:+st.rodLen||3,barrel:st.barrelOn!==false,barrelLen:st.barrelLen==null?3:+st.barrelLen,depth:f.depth!=null?f.depth:dayDepth(d),notes:'',inReport:true};
+ if(f.count){o.stands=Math.floor(f.count/o.per);o.singles=f.count%o.per}
+ const m=$('#modal');
+ const draw=()=>{const c=rcCalc(o),ok=c.depth!=null&&Math.abs(c.diff)<0.05;
+  m.innerHTML=`<div class="sheet" id="rcSheet"><h2>🔢 Rod count on deck</h2>
+  <div class="mut sm">Rods per stand</div><div class="row" style="margin-bottom:10px"><button type="button" class="btn ${o.per===2?'':'ghost'}" data-rc="per" data-v="2" id="rcPer2">2</button><button type="button" class="btn ${o.per===3?'':'ghost'}" data-rc="per" data-v="3" id="rcPer3">3</button></div>
+  <div class="mut sm">Stands</div><div class="pm"><button type="button" class="btn ghost" data-rc="stands" data-v="-1" id="rcSm">−</button><div class="v" id="rcStands">${o.stands}</div><button type="button" class="btn ghost" data-rc="stands" data-v="1" id="rcSp">＋</button></div>
+  <div class="mut sm">Singles</div><div class="pm"><button type="button" class="btn ghost" data-rc="singles" data-v="-1" id="rcGm">−</button><div class="v" id="rcSingles">${o.singles}</div><button type="button" class="btn ghost" data-rc="singles" data-v="1" id="rcGp">＋</button></div>
+  <div class="g3"><label>Rod length (m)<input data-rcf="rodLen" type="number" inputmode="decimal" step="any" value="${o.rodLen}"></label><label>Barrel (m)<input data-rcf="barrelLen" type="number" inputmode="decimal" step="any" value="${o.barrelLen}"></label><label>Hole depth (m)<input data-rcf="depth" type="number" inputmode="decimal" step="any" value="${o.depth??''}" id="rcDepth"></label></div>
+  <label class="chk"><input type="checkbox" data-rcf="barrel" ${o.barrel?'checked':''} id="rcBarrel"> Count the core barrel</label>
+  <div class="kv"><span>Total rods</span><b id="rcRods">${c.rods}</b></div><div class="kv"><span>String length</span><b id="rcLen">${fm(c.length)} m</b></div>
+  <div class="rcres ${ok?'ok':'bad'}" id="rcRes">${c.depth==null?'Enter hole depth':ok?'MATCH':(c.diff>0?'+':'−')+fm(Math.abs(c.diff))+' m'}</div>
+  <label>Notes<input data-rcf="notes" type="text" value="${esc(o.notes)}" id="rcNotes"></label>
+  <label class="chk"><input type="checkbox" data-rcf="inReport" ${o.inReport?'checked':''} id="rcRep"> Add to report comments</label>
+  <div class="row"><button type="button" class="btn ghost" data-rc="cancel" id="rcCancel">Cancel</button><button type="button" class="btn grn" data-rc="save" id="rcSave">Save count</button></div></div>`};
+ const upd=()=>{const c=rcCalc(o),ok=c.depth!=null&&Math.abs(c.diff)<0.05,set=(id,t)=>{const e=document.getElementById(id);if(e)e.textContent=t};
+  set('rcRods',c.rods);set('rcLen',fm(c.length)+' m');const r=document.getElementById('rcRes');if(r){r.className='rcres '+(ok?'ok':'bad');r.textContent=c.depth==null?'Enter hole depth':ok?'MATCH':(c.diff>0?'+':'−')+fm(Math.abs(c.diff))+' m'}};
+ const close=v=>{m.onclick=null;m.oninput=null;m.onchange=null;m.hidden=true;m.innerHTML='';res(v);setTimeout(render,0)};
+ m.onclick=e=>{const b=e.target.closest('[data-rc]');if(!b)return;const k=b.dataset.rc,v=+b.dataset.v;
+  if(k==='per'){o.per=v===3?3:2;draw()}else if(k==='stands'||k==='singles'){o[k]=Math.max(0,o[k]+v);draw()}
+  else if(k==='cancel')close(null);
+  else if(k==='save'){const c=rcCalc(o);const rc={id:uid(),actId:act?act.id:null,t:Date.now(),stands:o.stands,per:o.per,singles:o.singles,rodLen:o.rodLen,barrel:!!o.barrel,barrelLen:o.barrelLen,depth:c.depth,rods:c.rods,length:c.length,diff:c.diff,notes:o.notes||'',inReport:!!o.inReport};
+   if(!Array.isArray(d.rodCounts))d.rodCounts=[];d.rodCounts.push(rc);S.settings.standSize=o.per;save();toast('Rod count saved: '+rc.rods+' rods'+(c.depth!=null?' · '+rcVerdict(rc):''));close(rc)}};
+ const onF=e=>{const el=e.target;if(!el.dataset||!el.dataset.rcf)return;const k=el.dataset.rcf;
+  if(el.type==='checkbox')o[k]=el.checked;else if(k==='notes')o[k]=el.value;else o[k]=k==='depth'?num(el.value):(num(el.value)??0);upd()};
+ m.oninput=onF;m.onchange=onF;draw();m.hidden=false})}
+
+/* ===== v6: hitch calendar ===== */
+let schedYear=null;
+const MONF=['January','February','March','April','May','June','July','August','September','October','November','December'];
+function vSched(){const today=workDate(),yr=schedYear||+today.slice(0,4),base=rotaBase(),anc=rotaAnchors();
+ let h=hitchBar(today);
+ h+=`<div class="card"><h2>Hitch calendar</h2>${base?`<div class="kv"><span>Pattern</span><b id="rotaPat">${base.on} on / ${base.off} off · ${base.type==='Night'?'Nights':'Days'} · from ${nice(base.start)} ${base.start.slice(0,4)}</b></div>`:'<p class="mut">Set the first day of a hitch and Days/Nights. The year fills in from there.</p>'}
+ ${anc.map(a=>`<div class="kv"><span>New start ${nice(a.start)} ${a.start.slice(0,4)}</span><b>${a.on}/${a.off} · ${a.type==='Night'?'Nights':'Days'} <button class="btn ghost sm" style="width:auto;display:inline-block" data-a="unanchor" data-v="${a.from}">✖</button></b></div>`).join('')}
+ <button class="btn" data-a="setHitch" id="schedSet">${base?'📌 Set new hitch start':'📌 Set hitch start (Days/Nights)'}</button>
+ <p class="mut sm">Tap a day to switch it work/off or Nights/Days. A night shift that runs past midnight is one shift, dated the evening it starts.</p>
+ <div class="legend"><span class="wn" style="background:#2a1f4a">Work night</span><span style="background:#4a3708">Work day</span><span style="background:#0f2a1a">Off</span><span style="border:2px dashed #fff">Changed</span><span style="outline:3px solid var(--red)">Today</span></div></div>
+ <div class="row" style="margin-bottom:10px"><button class="btn ghost sm" data-a="schedYr" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center;font-size:22px;font-weight:900" id="schedYr">${yr}</div><button class="btn ghost sm" data-a="schedYr" data-v="1">▶</button></div>`;
+ for(let mo=0;mo<12;mo++){const first=new Date(yr,mo,1),n=new Date(yr,mo+1,0).getDate();let cells=DOW.map(x=>`<div class="hd">${x.slice(0,2)}</div>`).join('');
+  for(let i=0;i<first.getDay();i++)cells+='<div></div>';
+  for(let dn=1;dn<=n;dn++){const ds=`${yr}-${pad(mo+1)}-${pad(dn)}`,hi=hitchInfo(ds);let cls='',sm='';
+   if(hi){cls=hi.on?(hi.type==='Night'?'wn':'wd'):'of';sm=hi.on?(hi.type==='Night'?'N':'D')+(hi.schedOn?hi.day:'+'):'off';if(hi.ov||hi.tov)cls+=' ov'}
+   if(ds===today)cls+=' td';
+   cells+=`<button class="${cls}" data-a="schedDay" data-v="${ds}" id="cal-${ds}">${dn}<small>${sm}</small></button>`}
+  h+=`<div class="card"><h3>${MONF[mo]} ${yr}</h3><div class="cal">${cells}</div></div>`}
+ return h}
+async function schedDay(ds){if(!isDate(ds))return;const hi=hitchInfo(ds);if(!hi)return setHitchFlow(ds);
+ const t=hitchText(ds);const y=ds.slice(0,4);
+ const v=await ask(`${nice(ds)} ${y}`,[{k:'st',l:'Work or off',t:'select',v:hi.ov||'auto',o:[['auto',`As rotation (${hi.schedOn?'work':'off'})`],['work','Work'],['off','Off']]},{k:'ty',l:'Nights or Days',t:'select',v:hi.tov||'auto',o:[['auto',`As rotation (${hi.anchor.type==='Night'?'Nights':'Days'})`],['N','Nights'],['D','Days']]}],{ok:'Save',alt:'📌 Set new hitch start here',msg:esc(t.txt),focus:false});
+ if(!v)return;if(v._alt)return setHitchFlow(ds);
+ const dov=Object.assign({},S.settings.rotaDayOv),tov=Object.assign({},S.settings.rotaTypeOv);
+ if(v.st==='auto'||(v.st==='work')===hi.schedOn)delete dov[ds];else dov[ds]=v.st;
+ if(v.ty==='auto'||(v.ty==='N'?'Night':'Day')===hi.anchor.type)delete tov[ds];else tov[ds]=v.ty;
+ S.settings.rotaDayOv=dov;S.settings.rotaTypeOv=tov;save();render()}
+async function setHitchFlow(ds){const base=rotaBase(),cur=ds&&rotaAnchorFor(ds)||base;
+ const v=await ask(base?'Set new hitch start':'Set hitch start',[{k:'date',l:'First day of the hitch',t:'date',v:ds||workDate()},{k:'type',l:'Days or Nights',t:'select',v:cur?cur.type:(S.settings.hitchShift||'Night'),o:[['Night','Nights'],['Day','Days']]},{k:'on',l:'Days on',t:'num',v:cur?cur.on:(+S.settings.hitchOn||28)},{k:'off',l:'Days off',t:'num',v:cur?cur.off:(S.settings.hitchOff??14)}],
+  {ok:'Save',focus:false,msg:base?'The calendar changes from this date on. Days before it stay as they were.':'Your rotation fills in from this date. You can change single days on the calendar.'});
+ if(!v)return;if(!isDate(v.date)){toast('Pick a date');return}
+ const on=Math.max(1,Math.round(v.on||28)),off=Math.max(0,Math.round(v.off==null?14:v.off)),type=v.type==='Day'?'Day':'Night',st=S.settings;
+ if(!base||v.date<=base.start){st.hitchStart=v.date;st.hitchShift=type;st.shift=type;st.hitchOn=on;st.hitchOff=off;st.rotaAnchors=(st.rotaAnchors||[]).filter(a=>a.from>v.date)}
+ else{const later=(st.rotaAnchors||[]).filter(a=>a.from>v.date);if(later.length&&!await confirmBox(`${plural(later.length,'later hitch start')} after ${nice(v.date)} will be replaced. Continue?`,'Replace'))return;
+  st.rotaAnchors=(st.rotaAnchors||[]).filter(a=>a.from<v.date).concat([{from:v.date,start:v.date,on,off,type}])}
+ save();render();toast('Hitch set: '+nice(v.date)+' · '+(type==='Night'?'Nights':'Days'))}
+
+/* ===== v6: past shifts quick-add ===== */
+const BF_PREV='ffdt.bfprev',BF_META='ffdt.bfprev.meta';
+let bfRows=[],bfStage='edit';
+// Rows are Leo's own shifts or cross-shift shifts (another driller). Whose shift it is comes from the driller name vs settings.myName.
+// Leo's rows become normal days in S.days. Cross-shift rows go to S.crossDays: never in his totals, pay period, report, wrap-up or Drive counts – only in the stats screen.
+const myName=()=>String(S.settings.myName||'').trim()||'Leo';
+const isMyName=n=>{n=String(n||'').trim().toLowerCase();return !n||n===myName().toLowerCase()};
+const bfIsMe=r=>isMyName(r&&r.driller);
+const crossDayList=()=>Object.values(S.crossDays||{}).filter(d=>d&&typeof d==='object');
+function bfMetres(r){const fr=num(r.from),to=num(r.to);if(fr!=null&&to!=null&&to>fr)return r2(to-fr);if(fr==null&&to==null){const m=num(r.m);return m}return null}
+function bfNewRow(){const last=lastDay(),lc=(S.settings.lastCrew||[]).filter(Boolean);
+ return{date:workDate(),shift:S.settings.hitchShift==='Day'?'Day':'Night',driller:myName(),m:'',from:'',to:'',hrs:'',notes:'',helpers:lc.slice(),
+  drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||'')}}
+function bfNames(){const set=new Set([myName(),...(S.settings.drillerNames||[])]);allDays().forEach(d=>{if(d.driller)set.add(d.driller);if(d.cross&&d.cross.driller)set.add(d.cross.driller)});crossDayList().forEach(d=>{if(d.driller)set.add(d.driller)});return[...set].filter(Boolean)}
+function bfHelperNames(r){const set=new Map();[...crewNames(),...(S.settings.helperNames||[]),...((r&&r.helpers)||[])].forEach(n=>{n=String(n||'').trim();if(n&&!set.has(n.toLowerCase()))set.set(n.toLowerCase(),n)});return[...set.values()]}
+const bfStore=r=>bfIsMe(r)?allDays():crossDayList();
+function bfDupes(r){return bfStore(r).filter(d=>d.date===r.date&&(d.shift||'Night')===r.shift&&(bfIsMe(r)?isMyName(d.driller):String(d.driller||'').trim().toLowerCase()===String(r.driller||'').trim().toLowerCase()))}
+const bfRowKey=r=>`${r.date}|${r.shift}|${bfIsMe(r)?'\u0000me':String(r.driller||'').trim().toLowerCase()}`;
+function bfCheck(row,i,rows){const errs=[],warns=[],fr=num(row.from),to=num(row.to),hr=num(row.hrs),tm=num(row.m),m=bfMetres(row),me=bfIsMe(row);
+ if(!isDate(row.date))errs.push('Pick a date');
+ if((fr==null)!==(to==null))errs.push('Enter both From and To, or neither');else if(fr!=null&&to<=fr)errs.push('To must be deeper than From');
+ else if(m==null)errs.push('Enter From and To depths (or metres if you don\'t know them)');else if(m<0)errs.push('Metres can\'t be negative');
+ if(String(row.hrs||'').trim()!==''&&(hr==null||hr<0||hr>24))errs.push('Hours must be 0–24');
+ if(isDate(row.date)){
+  if(row.date>workDate())warns.push('Date is in the future');
+  const who=me?'your':`${String(row.driller||'').trim()||'the cross shift'}'s`;
+  const dup=bfDupes(row);if(dup.length)warns.push(`You already have ${who} ${row.shift} shift on ${nice(row.date)} – you'll be asked what to do`);
+  if(!me){const host=allDays().find(d=>d.date===row.date&&crossLabel(d).startsWith(row.shift)&&d.cross&&(crossCalc(d.cross).counted||d.cross.from!=null));if(host)warns.push(`Cross-shift metres are already typed on your ${nice(row.date)} shift – stats will use this row instead of those`)}
+  (rows||[]).forEach((o,j)=>{if(j<i&&bfRowKey(o)===bfRowKey(row))warns.push(`Same date, shift and driller as row ${j+1}`)});
+  if(fr!=null&&to!=null&&to>fr){
+   if(tm!=null&&Math.abs(tm-(to-fr))>0.05)warns.push(`Typed metres (${fm(tm)}) ignored – From/To gives ${fm(r2(to-fr))} m`);
+   // overlap check per driller / shift: only against the same driller's same shift on that date
+   const iv=[];dup.forEach(d=>{(d.runs||[]).filter(r=>!r.dir&&r.from!=null&&r.to!=null).forEach(r=>iv.push([r.from,r.to]));const mi=d.mine||{};if(mi.from!=null&&mi.to!=null)iv.push([mi.from,mi.to])});
+   const ov=r2(unionRanges(iv).reduce((t,[a,b])=>t+rangeOverlap(fr,to,a,b),0));
+   if(ov>0)warns.push(`From/To overlaps ${fm(ov)} m already logged for ${who} ${row.shift} shift on ${nice(row.date)} – those metres would count twice`);
+   (rows||[]).forEach((o,j)=>{if(j===i||bfRowKey(o)!==bfRowKey(row))return;const x=rangeOverlap(fr,to,num(o.from),num(o.to));if(x>0)warns.push(`Overlaps ${fm(x)} m with row ${j+1}`)})}}
+ return{errs,warns}}
+function bfWhoHtml(r){const m=bfMetres(r);return `<div class="bfwho ${bfIsMe(r)?'me':'cr'}">${bfIsMe(r)?`✔ Your shift (${esc(myName())}) – counts in your totals`:`↔ Cross shift (${esc(String(r.driller||'').trim()||'?')}) – stats only, never in your totals`}${m!=null&&m>=0?` · ${fm(m)} m`:''}</div>`}
+function bfMsgHtml(i){const c=bfCheck(bfRows[i],i,bfRows);return bfWhoHtml(bfRows[i])+c.errs.map(e=>`<div class="err">✖ ${esc(e)}</div>`).join('')+c.warns.map(w=>`<div class="warn" style="margin:6px 0 0">⚠ ${esc(w)}</div>`).join('')}
+function vBackfill(){if(!bfRows.length)bfRows.push(bfNewRow());if(bfStage==='preview')return vBfPreview();const names=bfNames();
+ const f=(i,k,l,t='text',x='')=>`<label>${l}<input data-bf="${i}.${k}" type="${t}" ${t==='number'?'inputmode="decimal" step="any"':''} value="${esc(bfRows[i][k]??'')}" ${x} autocomplete="off"></label>`;
+ return `<button class="btn ghost" data-a="tab" data-v="days">← All shifts</button><div class="card"><h2>Add past shifts</h2><p class="mut sm">One row per shift – yours or the cross shift's. Date and From/To (or metres) are needed. Your rows count like any other day; cross-shift rows only show in Me vs cross shift stats.</p></div>
+ <datalist id="bfNames">${names.map(n=>`<option value="${esc(n)}">`).join('')}</datalist>
+ ${bfRows.map((r,i)=>`<div class="bfrow" id="bfRow${i}"><b>Row ${i+1}</b>
+  <div class="g2">${f(i,'date','Date','date')}<label>Days / Nights<select data-bf="${i}.shift"><option value="Night" ${r.shift==='Night'?'selected':''}>Nights</option><option value="Day" ${r.shift==='Day'?'selected':''}>Days</option></select></label></div>
+  ${f(i,'driller','Driller','text','list="bfNames"')}
+  <button class="btn ghost sm" data-a="bfCross" data-v="${i}" id="bfCross${i}" style="margin:0 0 10px">${bfIsMe(r)?'↔ Make this a cross-shift row':'↩ Make this my shift'}</button>
+  <div class="g3">${f(i,'from','From (m)','number')}${f(i,'to','To (m)','number')}${f(i,'m','Metres if no From/To','number')}</div>
+  <div class="mut sm">Helpers – tap names</div><div class="pick" id="bfHelp${i}">${bfHelperNames(r).map(n=>{const on=(r.helpers||[]).some(x=>x.toLowerCase()===n.toLowerCase());return `<button class="chip${on?' on':''}" data-a="bfHelp" data-i="${i}" data-v="${esc(n)}">${on?'✔ ':''}${esc(n)}</button>`}).join('')}</div>
+  <label>Other helper (type a name)<input data-bfh="${i}" type="text" autocomplete="off"></label>
+  <div class="g2">${f(i,'drillType','Drill type')}${f(i,'drillNumber','Drill number')}</div>
+  <div class="g2">${f(i,'hrs','Hours (optional)','number')}${f(i,'notes','Notes')}</div>
+  <div id="bfMsg${i}">${bfMsgHtml(i)}</div>
+  <button class="btn ghost sm" data-a="bfDel" data-v="${i}" style="margin-top:8px">🗑 Remove row</button></div>`).join('')}
+ <div class="row"><button class="btn ghost" data-a="bfAdd" id="bfAdd">＋ Add another row</button><button class="btn ghost" data-a="bfCopy" id="bfCopy">⧉ Copy previous row</button></div>
+ <button class="btn grn" data-a="bfSave" id="bfSave">👁 Preview ${plural(bfRows.length,'row')}</button>`}
+function bfPreview(){let bad=0;bfRows.forEach((r,i)=>{if(bfCheck(r,i,bfRows).errs.length)bad++});
+ if(bad){toast(`Fix ${plural(bad,'row')} first`);bfStage='edit';render();return{ok:false}}
+ bfStage='preview';window.scrollTo(0,0);render();return{ok:true}}
+function vBfPreview(){const rows=bfRows;let mine=0,cross=0,nm=0,nc=0,dupN=0;
+ const tr=rows.map((r,i)=>{const m=bfMetres(r)||0,me=bfIsMe(r),c=bfCheck(r,i,rows),dup=bfDupes(r).length;if(me){mine+=m;nm++}else{cross+=m;nc++}if(dup)dupN++;
+  return `<tr id="bfPrev${i}"><td>${i+1}</td><td>${nice(r.date)}</td><td>${esc(r.shift)}</td><td>${esc(me?myName():String(r.driller||'').trim())}${me?'':' ↔'}</td><td class="n">${fm(m)}</td><td class="n">${fm(num(r.hrs))}</td></tr>${c.warns.length?`<tr><td></td><td colspan="5">${c.warns.map(w=>`<div class="warn" style="margin:2px 0">⚠ ${esc(w)}</div>`).join('')}</td></tr>`:''}`}).join('');
+ return `<div class="card" id="bfPreview"><h2>Check before saving</h2>
+ <table class="tbl"><tr><th>#</th><th>Date</th><th>Shift</th><th>Driller</th><th>m</th><th>Hrs</th></tr>${tr}</table>
+ <div class="kv"><span>Your shifts</span><b id="bfPrevMine">${plural(nm,'shift')} · ${fm(r2(mine))} m</b></div>
+ <div class="kv"><span>Cross-shift rows (stats only)</span><b id="bfPrevCross">${plural(nc,'shift')} · ${fm(r2(cross))} m</b></div>
+ ${dupN?`<div class="warn" id="bfPrevDup">⚠ ${plural(dupN,'row')} ${dupN===1?'has a date that is':'have dates that are'} already logged for the same driller and shift. You'll be asked about each one – Cancel stops the whole save.</div>`:''}
+ <p class="mut sm">An undo point is saved first – Settings → Undo last bulk add puts everything back.</p></div>
+ <div class="row"><button class="btn ghost" data-a="bfBack" id="bfBack">← Back</button><button class="btn grn" data-a="bfConfirm" id="bfConfirm">✔ Save ${plural(rows.length,'row')}</button></div>`}
+function bfDay(r){const fr=num(r.from),to=num(r.to),hr=num(r.hrs),me=bfIsMe(r),hasFT=fr!=null&&to!=null,hs=(r.helpers||[]).map(x=>String(x).trim()).filter(Boolean);
+ const d={id:uid(),date:r.date,shift:r.shift==='Day'?'Day':'Night',job:'',hole:'',size:S.settings.size,driller:me?myName():String(r.driller||'').trim(),helper:hs[0]||'',helper2:hs.slice(1).join(', '),
+  drillType:String(r.drillType||'').trim()||'A5',drillNumber:String(r.drillNumber||'').trim(),bitId:null,
+  startDepth:fr,curDepth:to,travel:0,preop:0,dir:0,dirMode:false,cross:{},mine:{from:hasFT?fr:null,to:hasFT?to:null,m:hasFT?null:num(r.m),totalExcludesTimed:null},runs:[],acts:[],bits:[],cons:[],rodCounts:[],reportNotes:'',notes:String(r.notes||''),comments:null,
+  created:Date.now(),backfilled:true,endedAt:null,bfHours:hr!=null&&hr>0?hr:null};
+ if(!me)d.crossShift=true;return d}
+async function bfSave(){const rows=bfRows.slice();let bad=0;rows.forEach((r,i)=>{if(bfCheck(r,i,rows).errs.length)bad++});
+ if(bad){toast(`Fix ${plural(bad,'row')} first`);bfStage='edit';render();return{saved:0,aborted:'errors'}}
+ const plan=[];
+ for(let i=0;i<rows.length;i++){const r=rows[i],ex=bfDupes(r);
+  if(!ex.length){plan.push({r,act:'add'});continue}
+  const live=ex.some(d=>S.run&&S.run.dayId===d.id),who=bfIsMe(r)?'your':`${String(r.driller).trim()}'s`;
+  const v=await ask(`Row ${i+1}: ${who} ${nice(r.date)} ${r.shift} shift already exists`,[{k:'act',l:'What should happen to this row?',t:'select',v:'',o:[['','Choose…'],['skip','Skip this row'],['extra','Add as an extra entry'],...(live?[]:[['replace','Replace the existing shift']])]}],
+   {ok:'OK',focus:false,focusCancel:true,msg:`You already have ${plural(ex.length,'shift')} for ${nice(r.date)} ${r.shift} (${ex.map(d=>fm(mineCalc(d).counted)+' m').join(', ')}). Cancel stops the whole save – nothing is changed.`});
+  if(!v||!v.act){toast('Nothing saved');return{saved:0,aborted:'cancel'}}
+  plan.push({r,act:v.act,ex})}
+ // undo point before every bulk save
+ const snap=JSON.stringify(S),adds=plan.filter(p=>p.act!=='skip').length;
+ try{localStorage.setItem(BF_PREV,snap);localStorage.setItem(BF_META,JSON.stringify({savedAt:Date.now(),days:dataCounts(S).days,cross:crossDayList().length,rows:adds}))}catch(e){toast('Could not keep an undo copy – nothing saved');return{saved:0,aborted:'copy'}}
+ if(!S.crossDays||typeof S.crossDays!=='object')S.crossDays={};
+ let n=0,nc=0;plan.forEach(p=>{if(p.act==='skip')return;const nd=bfDay(p.r),store=nd.crossShift?S.crossDays:S.days;
+  if(p.act==='replace')p.ex.forEach(d=>{delete store[d.id];if(S.cur===d.id)S.cur=nd.id});
+  store[nd.id]=nd;if(nd.crossShift)nc++;else n++;
+  const dn=nd.driller;if(dn&&!isMyName(dn)&&!(S.settings.drillerNames||[]).some(x=>x.toLowerCase()===dn.toLowerCase()))S.settings.drillerNames=[dn,...(S.settings.drillerNames||[])].slice(0,20);
+  (p.r.helpers||[]).forEach(h=>{h=String(h).trim();if(h&&!crewNames().some(x=>x.toLowerCase()===h.toLowerCase())&&!(S.settings.helperNames||[]).some(x=>x.toLowerCase()===h.toLowerCase()))S.settings.helperNames=[h,...(S.settings.helperNames||[])].slice(0,30)})});
+ save();bfRows=[];bfStage='edit';tab='days';viewDay=null;render();toastBig(`✔ Saved ${plural(n,'past shift')}${nc?` + ${nc} cross-shift`:''} · undo in Settings`);return{saved:n+nc,mine:n,cross:nc}}
+async function bfUndo(){let prev=null,meta={};try{prev=localStorage.getItem(BF_PREV);meta=JSON.parse(localStorage.getItem(BF_META)||'{}')||{}}catch(e){}if(prev==null){toast('Nothing to undo');return}
+ const when=meta.savedAt?`${nice(todayStr(new Date(meta.savedAt)))} ${hm(meta.savedAt)}`:'before the last bulk add';
+ if(!await ask('Undo last bulk add?',[],{ok:'Undo bulk add',danger:true,focusCancel:true,msg:`<div id="bfUndoMsg">Puts back your data from ${esc(when)}${meta.days!=null?` (${plural(meta.days,'shift')})`:''}. Anything changed since then is lost.</div>`}))return;
+ try{localStorage.setItem(KEY,prev);localStorage.removeItem(BF_PREV);localStorage.removeItem(BF_META)}catch(e){toast('Undo failed');return}load();render();toastBig('↩ Bulk add undone')}
+function onBfHelperAdd(el){const r=bfRows[+el.dataset.bfh];const n=String(el.value||'').trim();if(!r||!n)return;r.helpers=Array.isArray(r.helpers)?r.helpers:[];if(!r.helpers.some(x=>x.toLowerCase()===n.toLowerCase()))r.helpers.push(n);render()}
+async function crossDel(id){const d=(S.crossDays||{})[id];if(!d)return;if(!await confirmBox(`Delete ${d.driller||'cross shift'}'s ${nice(d.date)} ${d.shift} row?`))return;delete S.crossDays[id];save();render();toastBig('🗑 Cross-shift row deleted')}
+
+/* ===== v6: Me vs cross shift stats – same calculator as the report (dayCalc / mineCalc / crossCalc / agg) ===== */
+let statF='all',statCustom={from:'',to:''},statPrintOn=false;
+function statRange(){const wd=workDate();
+ if(statF==='period'){const p=periodOf(wd);return{from:p.start,to:p.end,label:`Pay period ${nice(p.start)} – ${nice(p.end)}`}}
+ if(statF==='hitch'){const hi=hitchInfo(wd);if(!hi)return{from:'9999-12-31',to:'9999-12-31',label:'This hitch (set your hitch start first)'};return{from:hi.start,to:hi.end,label:`This hitch ${nice(hi.start)} – ${nice(hi.end)}`}}
+ if(statF==='custom'){const a=isDate(statCustom.from)?statCustom.from:'0000-01-01',b=isDate(statCustom.to)?statCustom.to:'9999-12-31';return{from:a,to:b,label:`${isDate(statCustom.from)?nice(a):'Start'} – ${isDate(statCustom.to)?nice(b):'today'}`}}
+ return{from:'0000-01-01',to:'9999-12-31',label:'All time'}}
+function statSum(recs){const m=r2(recs.reduce((t,x)=>t+x.m,0));let best=null;recs.forEach(x=>{if(!best||x.m>best.m)best=x});return{m,n:recs.length,avg:recs.length?r2(m/recs.length):0,best:best?{date:best.date,m:best.m,shift:best.shift}:null}}
+function statsData(rg){rg=rg||statRange();const inR=ds=>isDate(ds)&&ds>=rg.from&&ds<=rg.to;
+ const days=allDays().filter(d=>inR(d.date)),leoDays=days.filter(d=>isMyName(d.driller));
+ const rec=(d,src)=>{const c=dayCalc(d);return{date:d.date,shift:d.shift||'Night',driller:String(d.driller||'').trim(),m:c.mine.counted,h:c.total,src,id:d.id}};
+ const leo=leoDays.map(d=>rec(d,'day')),cross=[];
+ days.filter(d=>!isMyName(d.driller)).forEach(d=>cross.push(rec(d,'covered')));
+ const cd=crossDayList().filter(d=>inR(d.date));cd.forEach(d=>cross.push(rec(d,'cross')));
+ // cross-shift metres typed on Leo's own day (Shift tab card) – skipped when a cross-shift row exists for that date + shift
+ days.forEach(d=>{const c=d.cross||{},cc=crossCalc(c),sh=crossLabel(d).split(' ')[0];if(!(cc.counted||cc.drill||c.from!=null))return;
+  if(cd.some(x=>x.date===d.date&&(x.shift||'Night')===sh))return;cross.push({date:d.date,shift:sh,driller:String(c.driller||'').trim()||'Cross shift',m:cc.counted,h:null,src:'host',id:d.id})});
+ const a=agg(leoDays),best=statSum(leo).best;
+ const me={m:a.counted,n:a.days,avg:a.days?r2(a.counted/a.days):0,best,hours:r2(a.total)};
+ const cr=statSum(cross),byName={};cross.forEach(x=>{const k=x.driller||'Cross shift';(byName[k]=byName[k]||[]).push(x)});
+ const names=Object.entries(byName).map(([k,v])=>Object.assign({name:k},statSum(v))).sort((x,y)=>y.m-x.m);
+ const grp=(keyOf,labelOf)=>{const g={};const add=(x,w)=>{const k=keyOf(x.date);if(k==null)return;const o=g[k]=g[k]||{key:k,label:labelOf(k),me:{m:0,n:0},cross:{m:0,n:0}};o[w].m=r2(o[w].m+x.m);o[w].n++};leo.forEach(x=>add(x,'me'));cross.forEach(x=>add(x,'cross'));return Object.values(g).sort((x,y)=>String(x.key).localeCompare(String(y.key)))};
+ const periods=grp(ds=>periodOf(ds).start,k=>{const p=periodOf(k);return `${nice(p.start)} – ${nice(p.end)}`});
+ const hitches=grp(ds=>{const h=hitchInfo(ds);return h?h.start:'none'},k=>k==='none'?'No hitch set':`Hitch from ${nice(k)}`);
+ const helpers=[...new Set(leoDays.flatMap(d=>[d.helper,...String(d.helper2||'').split(/,|&/)]).map(x=>String(x||'').trim()).filter(Boolean))];
+ return{range:rg,me,cross:cr,names,leo,crossRecs:cross,periods,hitches,helpers,myName:myName()}}
+function statsText(sd){const L=[`ME vs CROSS SHIFT – ${sd.range.label}`,'',`${sd.myName}: ${fm(sd.me.m)} m · ${plural(sd.me.n,'shift')} · avg ${fm(sd.me.avg)} m/shift${sd.me.best?` · best ${nice(sd.me.best.date)} ${fm(sd.me.best.m)} m`:''}`,
+  `Cross shift: ${fm(sd.cross.m)} m · ${plural(sd.cross.n,'shift')} · avg ${fm(sd.cross.avg)} m/shift${sd.cross.best?` · best ${nice(sd.cross.best.date)} ${fm(sd.cross.best.m)} m`:''}`];
+ sd.names.forEach(x=>L.push(`  ${x.name}: ${fm(x.m)} m · ${plural(x.n,'shift')} · avg ${fm(x.avg)}${x.best?` · best ${nice(x.best.date)} ${fm(x.best.m)} m`:''}`));
+ if(sd.periods.length){L.push('','By pay period:');sd.periods.forEach(p=>L.push(`  ${p.label}: me ${fm(p.me.m)} m (${p.me.n}) · cross ${fm(p.cross.m)} m (${p.cross.n})`))}
+ if(sd.hitches.length){L.push('','By hitch:');sd.hitches.forEach(p=>L.push(`  ${p.label}: me ${fm(p.me.m)} m (${p.me.n}) · cross ${fm(p.cross.m)} m (${p.cross.n})`))}
+ if(S.settings.showCrewInShare&&sd.helpers.length)L.push('',`Helpers: ${sd.helpers.join(', ')}`);
+ L.push('','Counted metres: travel 1 h, pre-op 0.5 h, directional 3 m/hr credit, directional metres not counted.');
+ return L.join('\n')}
+function statGroupTable(rows,id){return rows.length?`<table class="tbl" id="${id}"><tr><th></th><th>Me m (shifts)</th><th>Cross m (shifts)</th></tr>${rows.map(p=>`<tr><td>${esc(p.label)}</td><td class="n">${fm(p.me.m)} (${p.me.n})</td><td class="n">${fm(p.cross.m)} (${p.cross.n})</td></tr>`).join('')}</table>`:'<p class="mut sm">—</p>'}
+function statPrintHtml(sd){const row=(l,o)=>`<tr><td>${esc(l)}</td><td>${fm(o.m)}</td><td>${o.n}</td><td>${fm(o.avg)}</td><td>${o.best?esc(nice(o.best.date))+' · '+fm(o.best.m)+' m':'—'}</td></tr>`;
+ return `<div class="sprint" id="statsPrint"><h2>${esc(String(S.settings.company||'').toUpperCase())} – ME vs CROSS SHIFT</h2><p>${esc(sd.range.label)}</p>
+ <table><tr><th></th><th>Metres</th><th>Shifts</th><th>Avg / shift</th><th>Best shift</th></tr>${row(sd.myName,sd.me)}${row('Cross shift',sd.cross)}${sd.names.map(x=>row('  '+x.name,x)).join('')}</table>
+ <h3>By pay period</h3>${statGroupTable(sd.periods,'spPer')}<h3>By hitch</h3>${statGroupTable(sd.hitches,'spHitch')}
+ ${S.settings.showCrewInShare&&sd.helpers.length?`<p id="spCrew">Helpers: ${esc(sd.helpers.join(', '))}</p>`:''}
+ <p style="font-size:12px">Counted metres use the report calculator: travel 1 h, pre-op 0.5 h, directional 3 m/hr credit, directional metres not counted.</p></div>`}
+function vStats(){const rg=statRange(),sd=statsData(rg);
+ if(statPrintOn)return `<div class="row noprint"><button class="btn ghost" data-a="statPrint" data-v="0" id="statBack">← Back</button><button class="btn" data-a="doPrint" id="statDoPrint">🖨 Print / save PDF</button></div>${statPrintHtml(sd)}`;
+ const box=(t,o,id)=>`<div class="card" id="${id}"><h2>${esc(t)}</h2><div class="kv"><span>Total metres</span><b class="grn" id="${id}M">${fm(o.m)} m</b></div><div class="kv"><span>Shifts</span><b id="${id}N">${o.n}</b></div><div class="kv"><span>Average per shift</span><b id="${id}Avg">${fm(o.avg)} m</b></div><div class="kv"><span>Best shift</span><b id="${id}Best">${o.best?nice(o.best.date)+' · '+fm(o.best.m)+' m':'—'}</b></div></div>`;
+ const cd=crossDayList().filter(d=>d.date>=rg.from&&d.date<=rg.to).sort((a,b)=>b.date.localeCompare(a.date));
+ return `<button class="btn ghost" data-a="tab" data-v="totals">← Totals</button>
+ <div class="card"><h2>Me vs cross shift</h2><div class="row" style="flex-wrap:wrap">${[['all','All'],['hitch','This hitch'],['period','This pay period'],['custom','Custom']].map(([k,l])=>`<button class="btn sm ${statF===k?'':'ghost'}" data-a="statF" data-v="${k}" id="statF-${k}">${l}</button>`).join('')}</div>
+ ${statF==='custom'?`<div class="g2" style="margin-top:8px"><label>From<input type="date" data-st="from" value="${esc(statCustom.from)}"></label><label>To<input type="date" data-st="to" value="${esc(statCustom.to)}"></label></div>`:''}
+ <p class="mut sm" id="statRange">${esc(rg.label)}</p></div>
+ ${box(`${sd.myName} (me)`,sd.me,'stMe')}${box('Cross shift (all other drillers)',sd.cross,'stCr')}
+ ${sd.names.length?`<div class="card"><h2>Cross shift by driller</h2>${sd.names.map(x=>`<div class="kv"><span>${esc(x.name)} · ${plural(x.n,'shift')}</span><b>${fm(x.m)} m · avg ${fm(x.avg)}</b></div>`).join('')}</div>`:''}
+ <div class="card"><h2>By pay period</h2>${statGroupTable(sd.periods,'stPer')}</div>
+ <div class="card"><h2>By hitch</h2>${statGroupTable(sd.hitches,'stHitch')}</div>
+ <div class="card"><button class="btn" data-a="statPrint" data-v="1" id="statPrintBtn">🖨 Print preview</button><button class="btn blu" data-a="statShare" id="statShare">📤 Share / copy summary</button>
+ <p class="mut sm">Same counted-metres math as the report. Cross-shift rows never count in your totals.${S.settings.showCrewInShare?'':' Helper names are left out of shared / printed stats.'}</p></div>
+ ${cd.length?`<div class="card"><h2>Cross-shift rows</h2>${cd.map(d=>`<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift)} · ${esc(d.driller||'')}</b><span class="mut sm">${fm(mineCalc(d).counted)} m${trimNote(d.notes)?' · “'+esc(d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="crossDel" data-v="${d.id}">🗑</button></div>`).join('')}</div>`:''}`}
+async function shareText(title,text){
+ if(navigator.share){try{await navigator.share({title,text});toast('Shared ✔');return 'shared'}catch(e){if(e&&e.name==='AbortError')return 'cancelled'}}
+ copyText(text);return 'copied'}
+
+/* ===== v6: bit alerts (slow bit / bit life) – a banner under the timer controls, never over them ===== */
+const bitAlertVib=new Set();
+function liveRunM(r){if(!r)return null;if(r.nowDepth!=null&&isFinite(+r.nowDepth))return r2(+r.nowDepth-r.from);
+ const blk=(r.pieces||[]).filter(p=>p.blocked&&p.to!=null);if((r.segs||[]).some(s=>s.t==='pull'))return r2((r.to??(blk.length?Math.max(...blk.map(p=>p.to)):r.target))-r.from);return null}
+function bitRuns(bit,exclude){const out=[];if(!bit)return out;allDays().forEach(d=>(d.runs||[]).forEach(r=>{if(r&&r.bitId===bit&&r.id!==exclude&&r.to!=null)out.push(r)}));return out}
+function bitAvg(bit,exclude){let m=0,h=0,n=0;bitRuns(bit,exclude).forEach(r=>{const st=runStats(r),dh=H(st.drill);if(st.m>0&&dh>0){m+=st.m;h+=dh;n++}});return{n,rate:n>=3&&h>0?m/h:null}}
+function bitTotalM(bit){let m=bitRuns(bit,S.run&&S.run.id).reduce((t,r)=>t+Math.max(0,runStats(r).m),0);if(S.run&&S.run.bitId===bit){const x=liveRunM(S.run);if(x>0)m+=x}return r2(m)}
+function bitAlerts(){const st=S.settings,out=[];if(st.bitAlertsOn===false)return out;const r=S.run,d=D();
+ const bit=(r&&r.bitId)||(d&&d.bitId!=null&&String(d.bitId).trim())||null;if(!bit)return out;
+ if(r&&r.bitId&&!r.slowDismissed){const rs=runStats(r),m=liveRunM(r);
+  if(rs.drill>=600000&&m!=null&&m>=0.5){const av=bitAvg(r.bitId,r.id);let pct=+st.slowPct;if(!(pct>0&&pct<100))pct=40;
+   if(av.rate){const live=m/H(rs.drill);if(live<=av.rate*(1-pct/100))out.push({k:'slow',bit:r.bitId,live:r2(live),avg:r2(av.rate),pct,msg:`Slow bit: ${fm(r2(live))} m/hr this run vs ${fm(r2(av.rate))} m/hr average for bit ${r.bitId} (${Math.round(100-live/av.rate*100)}% slower)`})}}}
+ const lim=+st.bitLifeM;if(lim>0&&!(st.bitLifeDismissed||{})[bit]){const tot=bitTotalM(bit);if(tot>lim)out.push({k:'life',bit,total:tot,lim,msg:`Bit ${bit} has ${fm(tot)} m – past the ${fm(lim)} m bit life`})}
+ return out}
+function bitAlertHtml(){const al=bitAlerts();
+ const r=S.run,showNow=r&&r.bitId&&S.settings.bitAlertsOn!==false;
+ al.forEach(a=>{const key=a.k+':'+(a.k==='slow'?(r&&r.id):a.bit);if(!bitAlertVib.has(key)){bitAlertVib.add(key);try{if(navigator.vibrate)navigator.vibrate([300,150,300])}catch(e){}}});
+ return al.map(a=>`<div class="card bitalert" id="bitAlert-${a.k}"><b>⚠ ${esc(a.msg)}</b><button class="btn" data-a="bitDismiss" data-v="${a.k}" id="bitDismiss-${a.k}">✖ Dismiss${a.k==='slow'?' for this run':' for this bit'}</button></div>`).join('')
+  +(showNow?`<div class="card" id="bitNow"><label>Depth now (optional – lets the slow-bit check run while drilling) · bit ${esc(r.bitId)}<input data-rn="nowDepth" type="number" inputmode="decimal" step="any" value="${esc(r.nowDepth??'')}" autocomplete="off"></label></div>`:'')}
+function bitDismiss(k){const al=bitAlerts().find(a=>a.k===k);if(k==='slow'&&S.run)S.run.slowDismissed=true;else if(k==='life'){const bit=al?al.bit:((S.run&&S.run.bitId)||(D()&&D().bitId));if(bit){S.settings.bitLifeDismissed=S.settings.bitLifeDismissed||{};S.settings.bitLifeDismissed[bit]=true}}save();render();toast('Alert dismissed')}
+function onRunNow(el){if(!S.run)return;const v=num(el.value);S.run.nowDepth=v;save()}
+
+/* ===== v6: undo cards (bulk add, pre-v6 upgrade) ===== */
+function undoCards(){let bf=null,bm={},p6=null,pm={};try{bf=localStorage.getItem(BF_PREV);bm=JSON.parse(localStorage.getItem(BF_META)||'{}')||{};p6=localStorage.getItem(PRE6_KEY);pm=JSON.parse(localStorage.getItem(PRE6_META)||'{}')||{}}catch(e){}
+ const when=t=>t?`${nice(todayStr(new Date(t)))} ${hm(t)}`:'?';
+ return (bf!=null?`<div class="card" id="bfUndoCard"><h3>Undo last bulk add</h3><p class="mut sm">Undo point from ${esc(when(bm.savedAt))}${bm.days!=null?` (${plural(bm.days,'shift')})`:''}.</p><button class="btn ghost" data-a="bfUndo" id="bfUndoS">↩ Undo last bulk add</button></div>`:'')
+  +(p6!=null?`<div class="card" id="pre6Card"><h3>Data from before v6</h3><p class="mut sm" id="pre6Info">Saved ${esc(when(pm.savedAt))}${pm.days!=null?` (${plural(pm.days,'shift')})`:''}${pm.fromV?`, from v${pm.fromV}`:''}.</p><button class="btn ghost" data-a="pre6Undo" id="pre6Undo">↩ Restore data from before v6</button></div>`:'')}
+async function pre6Undo(){let raw=null,pm={};try{raw=localStorage.getItem(PRE6_KEY);pm=JSON.parse(localStorage.getItem(PRE6_META)||'{}')||{}}catch(e){}if(raw==null){toast('Nothing to restore');return}
+ const when=pm.savedAt?`${nice(todayStr(new Date(pm.savedAt)))} ${hm(pm.savedAt)}`:'before the upgrade';
+ if(!await ask('Restore data from before v6?',[],{ok:'Restore old data',danger:true,focusCancel:true,msg:`<div id="pre6Msg">Puts back the data saved ${esc(when)}${pm.days!=null?` (${plural(pm.days,'shift')})`:''}, before the v6 upgrade. Everything added or changed since then is replaced. Your current data is kept as one safety copy.</div>`}))return;
+ try{const cur=localStorage.getItem(KEY);if(cur!=null)localStorage.setItem(PRE6_CUR,cur);localStorage.setItem(KEY,raw)}catch(e){toast('Restore failed');return}
+ load();render();toastBig('↩ Restored data from before v6')}
+function onBf(el,isChange){const [i,k]=el.dataset.bf.split('.');const r=bfRows[+i];if(!r)return;r[k]=el.value;if(isChange&&(k==='driller'||k==='shift')){render();return}if(isChange){const box=document.getElementById('bfMsg'+i);if(box)box.innerHTML=bfMsgHtml(+i)}}
+
 /* ===== Events ===== */
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const f=A[el.dataset.a];if(f){e.preventDefault();Promise.resolve(f(el)).catch(err=>toast('Error: '+err.message))}});
 function onBound(el,isChange){
  if(el.dataset.b!=null){const d=D();if(!d)return;setPath(d,el.dataset.b,elVal(el));
   if(el.dataset.b==='startDepth'&&!(d.runs||[]).length)d.curDepth=null;
   save();updDerived()}
- else if(el.dataset.sb!=null){let v=elVal(el);if(el.dataset.sb==='round'||el.dataset.sb==='shiftCutoff')v=+v;setPath(S.settings,el.dataset.sb,v);if(el.dataset.sb==='hitchShift')S.settings.shift=v;if(el.dataset.sb==='shift')S.settings.hitchShift=v;save();if(el.dataset.sb==='wake')wake();if(isChange&&(el.tagName==='SELECT'||el.dataset.sb==='hitchStart'))render()}
+ else if(el.dataset.sb!=null){let v=elVal(el);if(el.dataset.sb==='round'||el.dataset.sb==='shiftCutoff'||el.dataset.sb==='standSize')v=+v;setPath(S.settings,el.dataset.sb,v);if(el.dataset.sb==='hitchShift')S.settings.shift=v;if(el.dataset.sb==='shift')S.settings.hitchShift=v;save();if(el.dataset.sb==='wake')wake();if(isChange&&(el.tagName==='SELECT'||el.type==='checkbox'||el.dataset.sb==='hitchStart'||el.dataset.sb==='hitchOn'||el.dataset.sb==='hitchOff'))render()}
 }
-document.addEventListener('input',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,false)});
-document.addEventListener('change',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,true)});
+document.addEventListener('input',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,false);else if(e.target.matches('[data-bf]'))onBf(e.target,false);else if(e.target.matches('[data-rn]'))onRunNow(e.target)});
+document.addEventListener('change',e=>{if(e.target.matches('[data-b],[data-sb]'))onBound(e.target,true);else if(e.target.matches('[data-bf]'))onBf(e.target,true);else if(e.target.matches('[data-st]')){statCustom[e.target.dataset.st]=e.target.value;statF='custom';render()}else if(e.target.matches('[data-bfh]'))onBfHelperAdd(e.target)});
 function updDerived(){const d=D();if(!d)return;const c=d.cross||{},set=(id,t)=>{const el=document.getElementById(id);if(el)el.textContent=t};
  set('dCur',(fm(dayDepth(d))||'—')+' m');const ms=document.getElementById('mineSum'),cs=document.getElementById('crossSum');if(ms)ms.innerHTML=mineExtraHtml(d,'m');if(cs)cs.innerHTML=sumKv(crossCalc(c),'c');renderHeader()}
 // The one import path: used by Import backup (file) and Restore from Google Drive. save → load() (runs migrations) → save.
 function applyImport(data,mode){
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:{};
- if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur}
+ if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.crossDays&&typeof data.crossDays==='object')S.crossDays=Object.assign({},S.crossDays||{},data.crossDays);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur}
  if(S){delete S._corrupt;S.settings=Object.assign({},S.settings||{},keep)}loadError=null;save();load();save();render()}
 $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;const text=await file.text();let data;try{data=JSON.parse(text)}catch(err){toast('Not a valid backup file');return}
  if(data&&data.app==='drill-tracker'&&data.data&&data.data.days)data=data.data; // a Drive backup file also imports
  if(!data||!data.days){toast('Not a Drill Tracker backup');return}
- const v=await ask('Import backup',[{k:'mode',l:'How?',t:'select',v:'merge',o:[['merge','Merge (keep mine, add / overwrite matching days)'],['replace','Replace everything on this phone']]}],{ok:'Import',msg:`${Object.keys(data.days).length} shifts in file.`,focus:false});
+ const v=await ask('Import backup',[{k:'mode',l:'How?',t:'select',v:'merge',o:[['merge','Merge (keep mine, add / overwrite matching days)'],['replace','Replace everything on this phone']]}],{ok:'Import',msg:`${plural(Object.keys(data.days).length,'shift')} in file.`,focus:false});
  if(!v)return;if(v.mode==='replace'&&!await confirmBox('Replace ALL data on this phone?','Replace'))return;
- applyImport(data,v.mode);toast('Imported ✔')});
+ applyImport(data,v.mode);toastBig('✔ Imported')});
 setInterval(()=>{if(!$('#modal').hidden)return;const act=document.activeElement;const typing=act&&/INPUT|TEXTAREA|SELECT/.test(act.tagName);
  if((tab==='timer'||tab==='log')&&(S.run||runningActs().length)&&!typing)render();else renderHeader()},1000);
 let wl=null;async function wake(){try{if(S.settings.wake&&'wakeLock' in navigator&&document.visibilityState==='visible'){wl=await navigator.wakeLock.request('screen')}else if(!S.settings.wake&&wl){await wl.release();wl=null}}catch(e){}}
@@ -1052,7 +1506,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 }
 
 load();render();wake();
-window.App={S:()=>S,A,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+window.App={S:()=>S,A,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
 </script>
 </body>
 </html>
