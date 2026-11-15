@@ -978,11 +978,11 @@ function releaseActs(a,ts){runningActs().forEach(({a:x})=>{if(x.id===a.id)return
 function releaseAll(a,ts){releaseActs(a,ts);releaseRun(a,ts);a.pausedBy=[]}
 const holdNames=ids=>(ids||[]).map(id=>{const f=runningActs().find(x=>x.a.id===id);return f?(ACTS[f.a.type]?.n||f.a.type):null}).filter(Boolean).join(' + ');
 function armBreakdown(a,ts=Date.now()){holdActs(a,ts);holdRun(a,ts)}
-function startRunAt(from,ts=Date.now(),day){const d=day||D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:(d.bitId!=null&&String(d.bitId).trim())?String(d.bitId).trim():null,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}]};if(d.startDepth==null)d.startDepth=from}
+function startRunAt(from,ts=Date.now(),day){const d=day||D();S.run={id:uid(),dayId:d.id,dir:!!d.dirMode,bitId:(d.bitId!=null&&String(d.bitId).trim())?String(d.bitId).trim():null,from,target:r2(from+(+S.settings.runLen||3)),pieces:[{from,to:null,blocked:false}],pauses:[],segs:[{t:'latch',p:0,s:ts,e:null}],holds:[]};if(d.startDepth==null)d.startDepth=from} // v6.2: holds:[] = the load-time default
 function newDayObj(){
  const last=lastDay();const date=workDate();const defShift=schedType(date);const lc=Array.isArray(S.settings.lastCrew)?S.settings.lastCrew:[];
  const d={id:uid(),date,shift:defShift,job:last?.job||'',hole:last?.hole||'',size:last?.size||S.settings.size,driller:S.settings.driller,helper:lc[0]||last?.helper||'',helper2:lc[1]||'',drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||''),bitId:last?.bitId??null,rodCounts:[],backfilled:false,endedAt:null,bfHours:null,
-  startDepth:last?dayDepth(last):null,curDepth:null,travel:+S.settings.travel||0,preop:+S.settings.preop||0,dir:0,cross:{},runs:[],acts:[],bits:[],cons:[],reportNotes:'',notes:'',comments:null,created:Date.now()};
+  startDepth:last?dayDepth(last):null,curDepth:null,travel:+S.settings.travel||0,preop:+S.settings.preop||0,dir:0,cross:{},mine:{totalExcludesTimed:null},dirMode:false,runs:[],acts:[],bits:[],cons:[],reportNotes:'',notes:'',comments:null,created:Date.now()}; // v6.2: mine/dirMode = the load-time defaults, so a reload never changes a new shift
  S.days[d.id]=d;S.cur=d.id;return d;
 }
 function download(name,text,type){try{const b=new Blob([text],{type});const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),2000);toast('Saved '+name)}catch(e){toast('Download failed: '+e.message)}}
@@ -1171,13 +1171,13 @@ const A={
 };
 async function finishRun(ts,early){
  const r=S.run;if(!r)return;const last=r.pieces[r.pieces.length-1];
- // v6.1 QA62-5: same depth rule as Shorten / the Pulling fix – Depth reached can't be above where this piece started (no negative metres),
- // and must be deeper than it unless it's "End run here" (0 m allowed). The refusal shows in the sheet only; it stays open until fixed or cancelled.
+ // Depth reached can't be above where this piece started (no negative metres); 0 m is allowed (v6.2 QA64-4, as in flagoff / End run here).
+ // The refusal shows in the sheet only; it stays open until fixed or cancelled.
  let v,dTo=early?last.from:r.target,dNotes=r.notes||'',bad='';
  for(;;){
   v=await ask(early?'End run here':'Run finished',[{k:'to',l:'Depth reached (m)',t:'num',v:dTo},{k:'notes',l:'Notes (optional)',t:'text',v:dNotes}],{ok:'Save run',msg:(bad?`<div class="warn" id="finBad">⚠ ${esc(bad)}</div>`:'')+`Run ${fm(r.from)} → ${fm(r.target)} m · ${fdur(runStats(r).total)}`,focus:false});
   if(!v||v.to==null)return;
-  if(last.from!=null&&(+v.to<+last.from-1e-9||(!early&&Math.abs(+v.to-+last.from)<1e-9))){bad=+v.to<+last.from?`Depth reached can't be less than ${fm(last.from)} m (where this piece started).`:`Depth reached must be deeper than ${fm(last.from)} m (where this piece started).`;dTo=v.to;dNotes=v.notes||'';continue}
+  if(last.from!=null&&+v.to<+last.from-1e-9){bad=`Depth reached can't be less than ${fm(last.from)} m (where this piece started).`;dTo=v.to;dNotes=v.notes||'';continue} // v6.2 QA64-4: To = From (0 m) is allowed, like flagoff
   break}
  const s=curSeg();if(!s.e)s.e=ts;last.to=v.to;r.to=v.to;r.end=s.e;r.notes=v.notes||'';delete r.resume;delete r.endEarly;
  const d=S.days[r.dayId]||D();d.runs.push(r);d.curDepth=v.to;S.run=null;
@@ -1239,15 +1239,26 @@ function fixCommit(u0,label){const d=S.days[u0.dayId],live=runJ();
  clearFix();let ok=true;try{localStorage.setItem(FIX_KEY,JSON.stringify(u))}catch(e){ok=false}
  if(!ok){fixApply(u,d);render();toast('⚠ Phone storage is full – nothing changed (no room to keep the Undo). Export a backup (Settings → Export backup).',true);return}
  if(!save()){clearFix();fixApply(u,d);render();return}
- render();toastBig('✔ Fixed: '+label+' · Undo fix is on the Log tab')}
+ render();if(getFix())toastBig('✔ Fixed: '+label+' · Undo fix is on the Log tab');
+ else toast('✔ Fixed: '+label+' · ⚠ No undo kept – phone storage was full. Export a backup now (Settings → Export backup).',true)} // v6.2 QA64-3: the undo key may have been dropped to fit ffdt.v1
 // put the touched entries back (before state); untouched entries stay as they are
 function fixApply(u,d){const put=(arr,m)=>{Object.entries(m).sort((x,y)=>x[1][2]-y[1][2]).forEach(([id,[b]])=>{const i=arr.findIndex(x=>x&&String(x.id)===String(id));if(i>=0)arr.splice(i,1)});
   Object.entries(m).filter(([,v])=>v[0]!=null).sort((x,y)=>x[1][2]-y[1][2]).forEach(([,[b,,bi]])=>arr.splice(Math.min(bi,arr.length),0,JSON.parse(b)))};
  put(d.acts,u.acts);put(d.runs,u.runs);if(u.live)S.run=JSON.parse(u.live[0]);if(u.cd){const[c,s]=JSON.parse(u.cd[0]);d.curDepth=c;d.startDepth=s;if(c===undefined)delete d.curDepth;if(s===undefined)delete d.startDepth}}
 // why an undo would lose something (null = safe)
+// v6.2 QA64-2: compare with the load-time defaults applied to BOTH sides (a reload adds holds:[], dir, bitId, pauses, pausedBy…), key order ignored
+function fixNorm(kind,j,live){if(j==null)return 'null';let o;try{o=JSON.parse(j)}catch(e){return String(j)}if(!o||typeof o!=='object')return canonJ(o);
+ if(kind==='act'){if(!Array.isArray(o.pauses))o.pauses=[];if(o.type==='rodpull'&&o.f&&o.f.depth==null&&o.f.from!=null)o.f.depth=o.f.from;
+  if(!Array.isArray(o.pausedBy)&&!o.e&&o.hrs==null&&isPausedList(o.pauses)){const by=live.filter(a=>a.id!==o.id&&(a.resumeActs||[]).includes(o.id)).map(a=>a.id);if(by.length)o.pausedBy=by}
+  if(Array.isArray(o.pausedBy)&&!o.pausedBy.length)delete o.pausedBy}
+ else{if(o.dir==null)o.dir=false;if(!Array.isArray(o.pauses))o.pauses=[];if(!('bitId' in o))o.bitId=null;
+  if(kind==='live'&&!Array.isArray(o.holds)){const sg=Array.isArray(o.segs)&&o.segs[o.segs.length-1];o.holds=sg&&sg.t==='pause'&&sg.e==null?live.filter(a=>a.resumeRun).map(a=>a.id):[]}}
+ return canonJ(o)}
 function fixUndoBlock(u){const d=S.days[u.dayId];if(!d||S.cur!==u.cur)return 'You are on a different shift now – that fix can no longer be undone.';
- const cur=(arr,m)=>{const now=byId(arr);for(const[id,v]of Object.entries(m)){const x=now.get(id)||now.get(+id);if((x?x.j:null)!==v[1])return true}return false};
- if(cur(d.acts,u.acts)||cur(d.runs,u.runs)||(u.live&&runJ()!==u.live[1])||(u.cd&&JSON.stringify([d.curDepth,d.startDepth])!==u.cd[1]))
+ const live=runningActs().map(x=>x.a);
+ const cur=(arr,m,kind)=>{const now=byId(arr);for(const[id,v]of Object.entries(m)){const x=now.get(id)||now.get(+id);if(fixNorm(kind,x?x.j:null,live)!==fixNorm(kind,v[1],live))return true}return false};
+ const cdN=j=>{const[c,s]=JSON.parse(j);return JSON.stringify([c??null,s??null])};
+ if(cur(d.acts,u.acts,'act')||cur(d.runs,u.runs,'run')||(u.live&&fixNorm('live',runJ(),live)!==fixNorm('live',u.live[1],live))||(u.cd&&cdN(JSON.stringify([d.curDepth,d.startDepth]))!==cdN(u.cd[1])))
   return 'Those timers changed after the fix (stopped, paused or edited) – undo would lose that. Nothing changed. Edit the entries by hand instead.';
  return null}
 function fixUndoCard(){const u=S&&getFix();if(!u||u.cur!==S.cur)return '';return `<div class="card" id="fixUndoCard"><p class="mut sm" id="fixUndoInfo">Last fix (${esc(hm(u.at))}): ${esc(u.label||'')}</p><button class="btn ghost glove" data-a="fixUndo" id="fixUndoBtn" style="margin:0">↩ Undo fix</button></div>`}
@@ -1270,6 +1281,16 @@ function fixDurCheck(ms,activeMs){if(ms==null||isNaN(ms)){toast('Type how long i
 // QA62-5: one depth rule for Shorten, the Pulling fix and Run finished: To must be deeper than From (equal only when no metres are expected)
 function depthBad(from,to,zeroOk){if(from==null||to==null)return null;if(to<from)return `To (${fm(to)} m) can't be above From (${fm(from)} m) – nothing saved`;if(to===from&&!zeroOk)return `To must be deeper than From (${fm(from)} m) – nothing saved`;return null}
 const restState=rest=>{const l=rest[rest.length-1];return l&&l.e==null&&l.k==='p'?'now paused':'running'};
+// v6.2 QA64-1: preview text for OTHER timers the fix changes (behaviour unchanged): timers held by the fixed Water/Breakdown that restart at T,
+// a running core run that the new activity pauses from T, and running activities that a new Water/Breakdown pauses from T.
+function fixThirds(a,T,now,nx,r,runPaused){const N=x=>ACTS[x.type]?.n||x.type,brk=nx==='breakdown'||nx==='water',gap=now-T,out=[];if(gap<1000)return out;
+ runningActs().forEach(({a:x})=>{if(x===a)return;const paused=isActPaused(x);
+  const byA=!!(a&&paused&&(Array.isArray(x.pausedBy)?x.pausedBy.includes(a.id)&&x.pausedBy.length===1:(a.resumeActs||[]).includes(x.id)));
+  if(byA&&!brk)out.push(`${N(x)} resumes at ${hm(T)} (+${fixDur(gap)})`);
+  else if(!paused&&brk)out.push(`${N(x)} pauses from ${hm(T)} (−${fixDur(gap)})`)});
+ if(a&&nx!=='run'&&r&&!runPaused)out.push(`core run pauses from ${hm(T)} (−${fixDur(gap)} coring)`);
+ return out}
+const thirdTxt=t=>t.length?' · '+t.join(' · '):'';
 async function fixLive(kind,id){buzz();const now=Date.now();
  if(kind==='run'){const r=S.run;if(!r){toast('No run running');return}const ph=runPhase(r,now);if(!ph){toast('The run is paused by a timer – fix that timer instead');return}const d=S.days[r.dayId];if(!d)return;
   const activeMs=ivMs(ph.iv),isPull=ph.t==='pull',last=r.pieces[r.pieces.length-1];
@@ -1280,10 +1301,10 @@ async function fixLive(kind,id){buzz();const now=Date.now();
   if(T>now2){toast("The next entry can't start in the future – nothing changed",true);return}
   const clash=fixClash(d,T,now2+1,null,true);if(clash){toast(clash,true);return}
   if(isPull&&v.to==null){toast('Enter the depth reached for the run',true);return}
-  if(isPull){const bad=depthBad(last.from,v.to,false);if(bad){toast(bad,true);return}}
+  if(isPull){const bad=depthBad(last.from,v.to,true);if(bad){toast(bad,true);return}} // v6.2 QA64-4: it saves the same run end as Run finished, so the same rule (0 m ok, To<From refused)
   const nx=v.next,nxN=nx==='run'?(isPull?`Drilling (new run${d.dirMode?', directional':''})`:PHASE_N[NEXT_PH[ph.t]]):ACTS[nx]?.n;
   const rest=lineRest(ph.line,T);
-  const line=`${PHASE_N[ph.t]} ${hm(ph.start)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${restState(rest)}${restTxt(rest)}`;
+  const line=`${PHASE_N[ph.t]} ${hm(ph.start)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${restState(rest)}${restTxt(rest)}${thirdTxt(nx==='run'?[]:fixThirds(null,T,now2,nx,null,false))}`;
   if(!await fixPreview(`Fix ${PHASE_N[ph.t]}?`,line,isPull?`The run is saved ${fm(r.from)} → ${fm(v.to)} m, tube out at ${hm(T)}.`:''))return;
   const u=fixBegin(d),sg=r.segs;let k=sg.length;while(k>0&&!(sg[k-1].s<T&&sg[k-1].t!=='pause'))k--;  // the phase seg holding T
   sg.length=k;sg[k-1].e=T;delete r.resume;
@@ -1307,7 +1328,7 @@ async function fixLive(kind,id){buzz();const now=Date.now();
  if(nx==='run'&&!r&&v.from==null){toast('Enter the depth the new run starts at',true);return}
  const rest=lineRest(ln,T),keeps=nx==='run'&&r&&!runPaused;
  const nxN=nx==='run'?(!r?`Drilling (new run${d.dirMode?', directional':''})`:'Run'):ACTS[nx]?.n;
- const line=`${ACTS[a.type]?.n||a.type} ${hm(a.s)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${keeps?'running':restState(rest)}${keeps?'':restTxt(rest)}`;
+ const line=`${ACTS[a.type]?.n||a.type} ${hm(a.s)}–${hm(T)} (${fixDur(ms)}) → ${nxN} from ${hm(T)}, ${keeps?'running':restState(rest)}${keeps?'':restTxt(rest)}${thirdTxt(fixThirds(a,T,now2,nx,r,runPaused))}`;
  if(!await fixPreview(`Fix ${ACTS[a.type]?.n||a.type}?`,line))return;
  const u=fixBegin(d);a.e=T;a.pauses=(a.pauses||[]).filter(p=>p.s<T).map(p=>p.e==null||p.e>T?{...p,e:T}:p);
  let b=null;if(nx!=='run'){b=newAct(nx,T,rest);const brk=nx==='breakdown'||nx==='water';
