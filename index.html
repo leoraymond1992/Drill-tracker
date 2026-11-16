@@ -128,6 +128,16 @@ input.bad{border-color:var(--red,#e33)!important;outline:2px solid #e33}.rcres.o
 .dgr.fut{opacity:.45}.gd{font-size:13px;line-height:1.3}.gc{min-width:0;padding:2px 4px;border-radius:6px;overflow-wrap:anywhere}.gc.me{background:rgba(255,179,0,.10)}
 .gn{font-size:14px;line-height:1.25}.gm{font-size:20px;font-weight:800}.gt{font-size:15px;font-weight:800;text-align:right}
 .gro{background:var(--card2);border:2px solid var(--line);border-radius:10px;padding:10px;margin:0 0 10px;font-size:16px}
+/* == v6.7 RPM begin */
+.rpmvid{display:block;width:100%;max-height:50vh;background:#000;border-radius:10px;margin:0 0 8px}
+.big.rpmtime{font-size:30px;margin:0 0 6px}
+input.rpmscrub{padding:0;border:0;background:none;min-height:58px;margin:0 0 10px}
+.btn.rpmpick{text-align:center;color:#111;font-size:18px;font-weight:800;margin:0 0 10px}.btn.ghost.rpmpick{color:var(--tx)}
+.rcres.mid{background:#47360a;color:var(--amb)}
+.segs div.tap{cursor:pointer;min-height:64px;border:2px dashed var(--line)}.segs div.tap.act{border-color:var(--amb)}
+.chip.tchip{padding:6px 12px;font-size:15px}
+#mf input[name=tileV]{font-size:40px;min-height:80px;text-align:center;font-weight:900}
+/* == v6.7 RPM end */
 </style>
 </head>
 <body>
@@ -306,6 +316,7 @@ function load(){
   // v6.3: oil change log – default when missing (in memory only; it is stored with the next save, so old data stays byte-identical on load)
   if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};else{if(!Array.isArray(S.maint.log))S.maint.log=[];if(!('dismissed' in S.maint))S.maint.dismissed=null}
   try{tpFill()}catch(e){} // v6.6: travel + pre-op on quick-add days (in memory; written with the next save)
+  try{rpmDefault()}catch(e){} // == v6.7 RPM: day.rpm – missing = no readings; a non-list value is reset to [] (in memory) – one line
   maintIds(S.maint.log); // v6.4 (QA66-b): entries without an id get a stable one in memory only (written with the next save), so History ✕ works
  }catch(e){
   try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){storeWarn=STORE_FULL}
@@ -327,7 +338,7 @@ function shiftMap(src){try{const o=typeof src==='string'?JSON.parse(src):JSON.pa
  // v6.6 QA70-1: a copy is read the way load() reads it – the same travel/pre-op fill and oil-change ids – so a copy that differs only by those still counts as covered
  try{tpFillOn(o)}catch(e){}try{if(o.maint&&typeof o.maint==='object'&&Array.isArray(o.maint.log))maintIds(o.maint.log)}catch(e){}
 
- [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(d))});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);m.maint_=new Set((o.maint&&Array.isArray(o.maint.log)?o.maint.log:[]).map(canonJ));return m}catch(e){return null}}
+ [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(rpmStrip(d)))/* == v6.7 RPM: no readings = same shift */});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);m.maint_=new Set((o.maint&&Array.isArray(o.maint.log)?o.maint.log:[]).map(canonJ));return m}catch(e){return null}}
 // QA r2 nit 1: a copy is "covered" only if its shifts AND its settings AND its live run are also in ffdt.v1 or another kept copy
 function shiftsCovered(m,others){if(!m)return false;for(const[k,set]of m)for(const c of set)if(!others.some(o=>o&&o.has(k)&&o.get(k).has(c)))return false;
  if(!others.some(o=>o&&o.set_===m.set_))return false;if(m.run_!=='null'&&!others.some(o=>o&&o.run_===m.run_))return false;
@@ -696,10 +707,11 @@ async function maintDel(id){const M=maintEnsure(),e=M.log.find(x=>x&&String(x.id
 const TABS=[['shift','🗓','Shift'],['timer','⏱','Timer'],['log','🔧','Log'],['report','📋','Report'],['days','📚','Days'],['totals','Σ','Totals'],['sched','📅','Hitch']];
 function render(){
  if(!$('#modal').hidden)return;
- $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='grid'&&k==='shift')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
- const V={grid:vGrid,shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
+ $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='grid'&&k==='shift')||(tab==='stats'&&k==='totals')||((tab==='rpm'||tab==='sw')&&k==='log')/* == v6.7 RPM */?'on':''}"><span>${i}</span>${l}</button>`).join('');
+ const V={grid:vGrid,shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats,rpm:vRpm,sw:vSw/* == v6.7 RPM */}[tab]||vShift;
  $('#main').innerHTML=(loadError?corruptBanner():'')+(storeWarn?`<div class="warn" id="storeWarn"><b>${esc(storeWarn)}</b><div class="row" style="margin-top:8px"><button class="btn" data-a="exportJSON">⬇ Export backup</button><button class="btn ghost" data-a="storeWarnOk" id="storeWarnOk">✔ Got it</button></div></div>`:'')+drivePendingBanner()+maintBanner()+V();
  renderHeader();
+ rpmAfterRender(); // == v6.7 RPM: re-attach the in-memory video after a redraw
 }
 function renderHeader(){
  const d=D();$('#hsub').textContent=d?`${d.hole||'No hole'} · ${nice(d.date)} ${d.shift||''} · ${fm(dayDepth(d))||'?'} m`:'No shift open';
@@ -847,11 +859,12 @@ function vTimer(){
    <div class="big" id="segT">${fdur(s.t==='pause'&&s.e==null?st.total:(s.e||Date.now())-s.s)}</div>
    <div class="c mut sm">${s.t==='pause'?'elapsed (pauses not counted)':'this step'} · started ${hm(s.t==='pause'?(r.segs[r.segs.length-2]||s).s:s.s)}</div>
    <div class="segs">
-    <div class="${s.t==='latch'?'act':''}">Latch<b>${fdur(st.latch)}</b></div>
-    <div class="${s.t==='drill'?'act':''}">Drill<b>${fdur(st.drill)}</b></div>
-    <div class="${s.t==='pull'?'act':''}">Pull<b>${fdur(st.pull)}</b></div>
+    <div class="tap${s.t==='latch'?' act':''}" data-a="tileFix" data-v="latch" id="tileLatch" role="button">Latch<b>${fdur(st.latch)}</b></div><!-- == v6.7 RPM: tiles tappable -->
+    <div class="tap${s.t==='drill'?' act':''}" data-a="tileFix" data-v="drill" id="tileDrill" role="button">Drill<b>${fdur(st.drill)}</b></div>
+    <div class="tap${s.t==='pull'?' act':''}" data-a="tileFix" data-v="pull" id="tilePull" role="button">Pull<b>${fdur(st.pull)}</b></div>
     <div>Total<b class="amb">${fdur(st.total)}</b></div>
    </div>
+   <div class="c mut sm" id="tileHint">✎ Tap Latch, Drill or Pull to set its real time</div><!-- == v6.7 RPM -->
    ${st.pause?`<div class="c mut sm${s.t==='pause'?' red':''}">${s.t==='pause'?'⏸ PAUSED · ':''}Paused time (not counted): ${fdur(st.pause)}</div>`:''}
    ${r.pieces.filter(p=>p.blocked).map(p=>`<div class="warn">⛔ Blocked @ ${fm(p.to)} m (from ${fm(p.from)})${p.note?' – '+esc(p.note):''}</div>`).join('')}
    <button class="btn huge grn" data-a="next">${nxt}</button>
@@ -877,7 +890,7 @@ function vTimer(){
   ${runs.slice().reverse().map((r,i)=>runLi(r,runs.length-i,d)).join('')}</div>`}
  return h;
 }
-function runLi(r,n,d,ro){const st=runStats(r);return `<div class="li"><div class="x"><b>#${n} ${fm(r.from)} → ${fm(r.to)} m <span class="amb">${fdur(st.total)}</span>${st.blocks?` <span class="pill red">⛔${st.blocks}</span>`:''}${r.dir?' <span class="pill" style="color:var(--pur)">DIR</span>':''}${r.noDepth&&r.from==null?' <span class="pill red">no depth – tap ✎</span>':''}</b><span class="mut sm">${hm(r.segs[0].s)} · L ${fdur(st.latch)} · D ${fdur(st.drill)} · P ${fdur(st.pull)}${st.pause?' · paused '+fdur(st.pause):''}${trimNote(r.notes)?' · “'+esc(r.notes)+'”':''}${(r.pieces||[]).filter(p=>p.blocked&&trimNote(p.note)).map(p=>' · ⛔ '+fm(p.to)+'m “'+esc(p.note)+'”').join('')}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editDoneRun" data-v="${r.id}" data-d="${d.id}">✎</button>`}</div>`}
+function runLi(r,n,d,ro){const st=runStats(r);return `<div class="li"><div class="x"><b>#${n} ${fm(r.from)} → ${fm(r.to)} m <span class="amb">${fdur(st.total)}</span>${st.blocks?` <span class="pill red">⛔${st.blocks}</span>`:''}${r.dir?' <span class="pill" style="color:var(--pur)">DIR</span>':''}${r.noDepth&&r.from==null?' <span class="pill red">no depth – tap ✎</span>':''}</b><span class="mut sm">${hm(r.segs[0].s)} · ${ro?`L ${fdur(st.latch)} · D ${fdur(st.drill)} · P ${fdur(st.pull)}`:['latch','drill','pull'].map(k=>`<button class="chip tchip" data-a="tileFix" data-v="${k}" data-r="${esc(r.id)}" data-d="${esc(d.id)}">${k[0].toUpperCase()} ${fdur(st[k])}</button>`).join(' · ')/* == v6.7 RPM: L / D / P tappable */}${st.pause?' · paused '+fdur(st.pause):''}${trimNote(r.notes)?' · “'+esc(r.notes)+'”':''}${(r.pieces||[]).filter(p=>p.blocked&&trimNote(p.note)).map(p=>' · ⛔ '+fm(p.to)+'m “'+esc(p.note)+'”').join('')}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editDoneRun" data-v="${r.id}" data-d="${d.id}">✎</button>`}</div>`}
 const waterLive=()=>runningActs().some(({a})=>a.type==='water');
 // v6.1: its own card under the run controls (never next to start / stop / pause)
 function waterCard(){return waterLive()?'':`<div class="card" id="waterCard"><button class="btn blu glove" data-a="water" id="waterBtn" style="margin:0">⏳ WAITING FOR WATER</button><p class="mut sm" style="margin:6px 0 0">Times the wait for the water tanks. A running core run is paused and resumes when you stop.</p></div>`}
@@ -897,7 +910,8 @@ function vLog(){
  return hitchBar(d.date||workDate())+fu+runningActsCard()+`
  <div class="card"><h2>Start an activity</h2><div class="agrid">${Object.entries(ACTS).map(([k,v])=>`<button class="btn" data-a="startAct" data-v="${k}"><span>${v.ic}</span>${esc(v.n)}</button>`).join('')}</div>
  <p class="mut sm">Starting an activity pauses a running core run; stopping it resumes the run.</p>
- <button class="btn blu" data-a="rodCount" id="rodCountBtn">🔢 Rod count on deck</button></div>
+ <button class="btn blu" data-a="rodCount" id="rodCountBtn">🔢 Rod count on deck</button>
+ <div class="row"><button class="btn ghost" data-a="tab" data-v="rpm" id="rpmBtn">⚙ RPM &amp; rpi tool</button><button class="btn ghost" data-a="tab" data-v="sw" id="swBtn">⏱ Stopwatch</button></div><!-- == v6.7 RPM --></div>
  <div class="card"><h2>Bits & shells</h2>
   <div class="kv"><span>Bit in hole</span><b>${cb?bn(cb)+` · ${fm(cb.m)} m`:'—'}</b></div>
   <div class="kv"><span>Shell in hole</span><b>${cs?bn(cs)+` · ${fm(cs.m)} m`:'—'}</b></div>
@@ -914,6 +928,7 @@ function timeline(d,ro){
  const it=[];(d.runs||[]).forEach((r,i)=>it.push({s:r.segs[0].s,h:runLi(r,i+1,d,ro)}));
  (d.acts||[]).forEach(a=>it.push({s:a.s||0,h:`<div class="li"><div class="x"><b>${ACTS[a.type]?.ic||''} ${esc(ACTS[a.type]?.n||a.type)} <span class="amb">${a.e||a.hrs!=null?fh(actH(a))+' h':(isActPaused(a)?'PAUSED '+fdur(actElapsedMs(a)):'running '+fdur(actElapsedMs(a)))}</span></b><span class="mut sm">${a.s?hm(a.s):''}${a.hrs!=null?' (manual)':''}${pausedMs(a.pauses)&& (a.e||a.hrs!=null)?' · paused '+fdur(pausedMs(a.pauses,a.e||Date.now())):''} ${actDesc(a)}</span></div>${ro?'':`<button class="btn ghost sm" data-a="editAct" data-v="${a.id}" data-d="${d.id}">✎</button>`}</div>`}));
  (d.rodCounts||[]).forEach(rc=>it.push({s:rc.t||0,h:`<div class="li"><div class="x"><b>🔢 Rod count <span class="${Math.abs(rc.diff||0)<0.05?'grn':'red'}">${esc(rcVerdict(rc)||'')}</span></b><span class="mut sm">${rc.t?hm(rc.t):''} ${esc(rcText(rc))}${trimNote(rc.notes)?' · “'+esc(rc.notes)+'”':''}${rc.actId?' · with rod pull':''}</span></div></div>`}));
+ it.push(...rpmTimelineItems(d)); // == v6.7 RPM: saved RPM / rpi readings
  it.sort((a,b)=>a.s-b.s);return it.map(x=>x.h).join('')||'<p class="mut sm">Nothing logged yet</p>';
 }
 function extraRows(B){return Object.keys(B).filter(k=>(!BUCKETS.includes(k)||OPT_ROWS.includes(k))&&B[k].h)}
@@ -2183,6 +2198,215 @@ function onBf(el,isChange){const [i,k]=el.dataset.bf.split('.');const r=bfRows[+
  if(!isChange&&(k==='from'||k==='to'||k==='counted'||k==='dirH'||k==='hrs')){const ce=document.getElementById('bfCalc'+i);if(ce){const bad=bfRangeBad(r);ce.hidden=bad;ce.textContent=bad?'':bfCalcTxt(r)}}
  if(isChange&&(k==='driller'||k==='shift'||k==='from'||k==='to'||k==='dirH')){render();return}if(isChange){const box=document.getElementById('bfMsg'+i);if(box)box.innerHTML=bfMsgHtml(+i)}}
 
+// == v6.7 RPM begin (main block: RPM counter + rpi calculator; Leo: "Lets build one into the app")
+/* Video RPM counter + rpi calculator. Reached from the Log tab ("⚙ RPM & rpi tool"). The video is kept in memory only
+   (URL.createObjectURL – never stored); the counter's settings and readings live in memory too. The only data change:
+   "Save to shift" adds {t,rpm,rpi,rate} to day.rpm. The field is optional: missing = no readings (read through rpmOf), so old data
+   loads byte-identical and nothing is written on load; the load-time check only resets a day.rpm that isn't a list. Deleting the
+   last reading removes the field again, so the day is exactly as before. Export / Import / Drive backup carry it with the day. */
+const RPM_LO=100,RPM_HI=1300,IN_M=39.37007874015748;
+const rpmOf=d=>d&&Array.isArray(d.rpm)?d.rpm:[];
+function rpmDefault(){if(!S||S._corrupt||!S.days||typeof S.days!=='object')return;allDays().forEach(d=>{if('rpm' in d&&!Array.isArray(d.rpm))d.rpm=[]})}
+const rpmStrip=d=>{if(d&&Array.isArray(d.rpm)&&!d.rpm.length){const c=Object.assign({},d);delete c.rpm;return c}return d}; // safety-copy compare: no readings = same as before v6.7
+// Real seconds = video seconds × file fps / capture fps; RPM = turns / real seconds × 60
+function rpmCalc(videoSec,turns,capFps,fileFps){const dt=Math.abs(+videoSec),n=+turns,c=+capFps,f=+fileFps;
+ if(!(dt>0)||!(n>0)||!(c>0)||!(f>0))return null;const real=dt*f/c;return{real,rpm:n/real*60,out:false}}
+const rpmOut=r=>r!=null&&(r<RPM_LO||r>RPM_HI);
+function rpmAvg(list){const a=(list||[]).filter(x=>x&&x.rpm>0);return a.length?a.reduce((t,x)=>t+x.rpm,0)/a.length:null}
+// rpi = RPM / inches drilled per minute. mode 'rate': rate in m/hr (metric) or ft/hr (imperial); mode 'rod': minutes per rod of length rod (m or ft)
+function rpiCalc(o){const rpm=num(o.rpm),imp=o.units==='imperial';let ipm=null;
+ if(o.mode==='rod'){const L=num(o.rod),mn=num(o.mpr);if(L>0&&mn>0)ipm=(imp?L*12:L*IN_M)/mn}
+ else{const r=num(o.rate);if(r>0)ipm=imp?r*12/60:r*IN_M/60}
+ if(!(rpm>0)||!(ipm>0))return null;const rpi=rpm/ipm;return{rpm,ipm,rpi,rateMh:ipm*60/IN_M,band:rpiBand(rpi)}}
+function rpiBand(rpi){if(rpi==null||isNaN(rpi))return null;
+ if(rpi<150)return{k:'low',cls:'red',txt:'Under 150 – likely overfed / fast wear in soft ground'};
+ if(rpi<200)return{k:'mid',cls:'amb',txt:'150–200 – in between'};
+ if(rpi<=250)return{k:'sweet',cls:'grn',txt:'200–250 – usual impregnated-bit sweet spot'};
+ if(rpi<=300)return{k:'mid',cls:'amb',txt:'250–300 – in between'};
+ return{k:'high',cls:'red',txt:'Over 300 – likely polishing / starved of weight'}}
+const RPI_NOTE='General guidance only – follow your bit maker and site procedures.';
+const RPM_SAFE='Film only from outside the guard. Never reach near rotating rods. Follow site rules.';
+let RP={url:null,name:'',cap:'240',capCustom:'',fileFps:'30',turns:10,markT:null,reads:[],units:'metric',mode:'rate',rpm:'',rate:'',mpr:'',rod:'3',slow:0.25};
+let rpmVid=null;
+const rpmCap=()=>RP.cap==='custom'?num(RP.capCustom):+RP.cap;
+const rpmFile=()=>num(RP.fileFps);
+function rpmVideo(){if(!rpmVid){rpmVid=document.createElement('video');rpmVid.id='rpmVideo';rpmVid.setAttribute('playsinline','');rpmVid.setAttribute('webkit-playsinline','');rpmVid.muted=true;rpmVid.preload='auto';rpmVid.className='rpmvid';
+ ['timeupdate','seeked','loadedmetadata','durationchange','play','pause','ended'].forEach(ev=>rpmVid.addEventListener(ev,rpmTimeUpd))}return rpmVid}
+const rpmT=()=>rpmVid&&RP.url?(+rpmVid.currentTime||0):0;
+const rpmDur=()=>{const v=rpmVid&&+rpmVid.duration;return v>0&&isFinite(v)?v:0};
+function rpmTimeUpd(){const t=rpmT(),f=rpmFile(),el=$('#rpmTime');if(el)el.textContent=`${t.toFixed(3)} s${f>0?' · frame '+Math.round(t*f):''}${rpmDur()?' of '+rpmDur().toFixed(2)+' s':''}`;
+ const sc=$('#rpmScrub');if(sc){sc.max=String(rpmDur()||0);if(document.activeElement!==sc)sc.value=String(t)}
+ const pb=$('#rpmPlay');if(pb&&rpmVid)pb.textContent=rpmVid.paused?`▶ Play slow (×${RP.slow})`:'⏸ Pause'}
+function rpmAfterRender(){if(tab!=='rpm'){try{if(rpmVid&&!rpmVid.paused)rpmVid.pause()}catch(e){}return}
+ const host=$('#rpmVidHost');if(host&&RP.url){host.appendChild(rpmVideo());rpmTimeUpd()}}
+function rpmLoadFile(file){if(!file)return;if(!(window.URL&&URL.createObjectURL)){toast('This phone can\'t open video here',true);return}
+ try{if(RP.url)URL.revokeObjectURL(RP.url)}catch(e){}const v=rpmVideo();RP.url=URL.createObjectURL(file);RP.name=file.name||'clip';RP.markT=null;v.src=RP.url;try{v.load()}catch(e){}render();toast('Clip loaded – step to a frame where the mark passes')}
+function rpmSeek(t){if(!RP.url)return;const v=rpmVideo(),d=rpmDur();let x=Math.max(0,+t||0);if(d)x=Math.min(d,x);try{v.currentTime=x}catch(e){}rpmTimeUpd()}
+function rpmStep(dir){const f=rpmFile();if(!(f>0)){toast('Set the file fps first',true);return}const v=rpmVideo();try{if(!v.paused)v.pause()}catch(e){}rpmSeek(rpmT()+dir/f)}
+function rpmBand(r){return rpmOut(r)?`<div class="warn" id="rpmOutWarn">⚠ ${fm(Math.round(r))} RPM is outside the usual ${RPM_LO}–${RPM_HI} RPM. Check the fps settings and the number of turns.</div>`:''}
+function rpmReadsHtml(){const av=rpmAvg(RP.reads);
+ return RP.reads.length?`<div id="rpmReads">${RP.reads.map((x,i)=>`<div class="li"><div class="x"><b>${i+1}. ${fm(Math.round(x.rpm))} RPM${rpmOut(x.rpm)?' <span class="pill red">CHECK</span>':''}</b><span class="mut sm">${x.turns} turns · ${x.dt.toFixed(3)} s on video → ${x.real.toFixed(3)} s real · ${x.cap}/${x.file} fps</span></div><button class="btn ghost sm" data-a="rpmDel" data-v="${i}" aria-label="Remove reading">✕</button></div>`).join('')}</div>
+ <div class="rcres ${rpmOut(av)?'bad':'ok'}" id="rpmAvg">${fm(Math.round(av))} RPM</div><p class="c sm mut" style="margin-top:-6px">Average of ${plural(RP.reads.length,'reading')}</p>${rpmBand(av)}`:'<p class="mut sm" id="rpmReads">No readings yet. Mark the start, let the mark pass N full turns, then mark the end.</p>'}
+function rpiHtml(){const av=rpmAvg(RP.reads),rpmV=RP.rpm!==''?RP.rpm:(av?String(Math.round(av)):''),imp=RP.units==='imperial',lu=imp?'ft':'m';
+ const r=rpiCalc({rpm:rpmV,mode:RP.mode,rate:RP.rate,mpr:RP.mpr,rod:RP.rod,units:RP.units});
+ const chip=(a,v,cur,l,id)=>`<button class="chip${cur===v?' on':''}" data-a="${a}" data-v="${v}" id="${id}">${cur===v?'✔ ':''}${l}</button>`;
+ return `<div class="pick" id="rpiUnits">${chip('rpiUnits','metric',RP.units,'Metric (m)','rpiU_m')}${chip('rpiUnits','imperial',RP.units,'Imperial (ft)','rpiU_i')}</div>
+ <label>RPM${av&&RP.rpm===''?' (from your average)':''}<input data-rp="rpm" id="rpiRpm" type="number" inputmode="decimal" step="any" value="${esc(rpmV)}" placeholder="e.g. 900" autocomplete="off"></label>
+ <div class="pick" id="rpiMode">${chip('rpiMode','rate',RP.mode,'Rate ('+lu+'/hr)','rpiM_rate')}${chip('rpiMode','rod',RP.mode,'Minutes per rod','rpiM_rod')}</div>
+ ${RP.mode==='rod'?`<div class="g2"><label>Minutes per rod<input data-rp="mpr" id="rpiMpr" type="number" inputmode="decimal" step="any" value="${esc(RP.mpr)}" autocomplete="off"></label><label>Rod length (${lu})<input data-rp="rod" id="rpiRod" type="number" inputmode="decimal" step="any" value="${esc(RP.rod)}" autocomplete="off"></label></div>`
+  :`<label>Penetration rate (${lu}/hr)<input data-rp="rate" id="rpiRate" type="number" inputmode="decimal" step="any" value="${esc(RP.rate)}" autocomplete="off"></label>`}
+ <div id="rpiOut">${rpiOutHtml(r)}</div>`}
+function rpiOutHtml(r){if(!r)return '<p class="mut sm" id="rpiRes">Enter RPM and the rate (or minutes per rod) to see revolutions per inch.</p>';
+ return `<div class="rcres ${r.band.k==='sweet'?'ok':r.band.k==='mid'?'mid':'bad'}" id="rpiRes">${fm(Math.round(r.rpi))} rpi</div>
+ <p class="c sm mut" style="margin-top:-6px" id="rpiIpm">${fm(Math.round(r.rpm))} RPM ÷ ${r.ipm.toFixed(2)} in/min (${fm(r.rateMh)} m/hr)</p>
+ <p class="c ${r.band.cls}" style="font-weight:800" id="rpiBand">${esc(r.band.txt)}</p>`}
+function rpiCur(){const av=rpmAvg(RP.reads);return rpiCalc({rpm:RP.rpm!==''?RP.rpm:(av?Math.round(av):''),mode:RP.mode,rate:RP.rate,mpr:RP.mpr,rod:RP.rod,units:RP.units})}
+function rpmSavedHtml(d){const L=rpmOf(d);if(!L.length)return '';
+ return `<h3>Saved on this shift</h3><div id="rpmSaved">${L.map((x,i)=>`<div class="li"><div class="x"><b>${fm(x.rpm)} RPM · ${fm(x.rpi)} rpi</b><span class="mut sm">${x.t?hm(x.t):''}${x.rate!=null?' · '+fm(x.rate)+' m/hr':''}</span></div><button class="btn ghost sm" data-a="rpmDelSaved" data-v="${i}" aria-label="Delete saved reading">🗑</button></div>`).join('')}</div>`}
+function rpmTimelineItems(d){return rpmOf(d).filter(x=>x&&typeof x==='object').map(x=>{const b=rpiBand(+x.rpi);return{s:x.t||0,h:`<div class="li rpmLine"><div class="x"><b>⚙ RPM ${fm(x.rpm)} · ${fm(x.rpi)} rpi${b?` <span class="${b.cls}">${esc(b.k==='sweet'?'sweet spot':b.k==='low'?'overfed?':b.k==='high'?'polishing?':'in between')}</span>`:''}</b><span class="mut sm">${x.t?hm(x.t):''}${x.rate!=null?' · '+fm(x.rate)+' m/hr':''}</span></div></div>`}})}
+function vRpm(){const d=D(),cap=rpmCap(),file=rpmFile(),open=shiftOpen(d);
+ const capChip=(v,l)=>`<button class="chip${RP.cap===v?' on':''}" data-a="rpmCap" data-v="${v}" id="rpmCap_${v}">${RP.cap===v?'✔ ':''}${l}</button>`;
+ return `<div class="row"><button class="btn ghost" data-a="tab" data-v="log" id="rpmBack">← Log</button><button class="btn ghost" data-a="tab" data-v="sw" id="rpmSwBtn">⏱ Stopwatch</button></div>
+ <div class="card bitalert" id="rpmSafe"><h2 style="color:#ff8a8a">⚠ Safety first</h2><p style="font-size:20px;font-weight:800;margin:0">${esc(RPM_SAFE)}</p></div>
+ <div class="card" id="rpmCard"><h2>📹 RPM from slow-mo video</h2>
+  <p class="sm">Put a paint or tape mark on the chuck or rod. Film it in slow-mo from outside the guard.</p>
+  <div class="row"><label class="btn blu rpmpick" id="rpmRecLbl">🎥 Record<input type="file" accept="video/*" capture="environment" data-rpfile="1" id="rpmRec" hidden></label><label class="btn ghost rpmpick" id="rpmPickLbl">📂 Pick a clip<input type="file" accept="video/*" data-rpfile="1" id="rpmPick" hidden></label></div>
+  ${RP.url?`<p class="mut sm" id="rpmClip">Clip: ${esc(RP.name)} (kept in memory only – not saved)</p><div id="rpmVidHost"></div>
+  <div class="c big rpmtime" id="rpmTime">0.000 s</div>
+  <input type="range" id="rpmScrub" class="rpmscrub" min="0" max="${rpmDur()||0}" step="any" value="${rpmT()}" aria-label="Scrub">
+  <div class="row"><button class="btn ghost glove" data-a="rpmStep" data-v="-1" id="rpmBackF">⏮ 1 frame</button><button class="btn ghost glove" data-a="rpmStep" data-v="1" id="rpmFwdF">1 frame ⏭</button></div>
+  <button class="btn ghost glove" data-a="rpmPlay" id="rpmPlay">▶ Play slow (×${RP.slow})</button>`:'<p class="mut sm" id="rpmNoClip">No clip yet.</p>'}
+  <h3>Frames per second</h3>
+  <div class="mut sm">Capture fps (what the camera filmed at)</div>
+  <div class="pick" id="rpmCapPick">${capChip('120','120')}${capChip('240','240')}${capChip('custom','Custom')}</div>
+  <div class="g2">${RP.cap==='custom'?`<label>Custom capture fps<input data-rp="capCustom" id="rpmCapCustom" type="number" inputmode="decimal" step="any" value="${esc(RP.capCustom)}" autocomplete="off"></label>`:'<div></div>'}<label>File / playback fps<input data-rp="fileFps" id="rpmFileFps" type="number" inputmode="decimal" step="any" value="${esc(RP.fileFps)}" autocomplete="off"></label></div>
+  <p class="sm mut" id="rpmFpsHelp">If the phone saved the slow-mo as a slowed-down 30 fps clip (it plays slow), set capture 240 and file 30. If the clip plays at real speed, set both to the same number.</p>
+  ${cap>0&&file>0&&file>cap?'<div class="warn" id="rpmFpsWarn">⚠ File fps is higher than capture fps – check the settings.</div>':''}
+  <h3>Full turns between marks</h3>
+  <div class="pm" id="rpmTurns"><button class="btn ghost" data-a="rpmTurns" data-v="-1" aria-label="Fewer turns">−</button><div class="v" id="rpmTurnsV">${RP.turns}</div><button class="btn ghost" data-a="rpmTurns" data-v="1" aria-label="More turns">＋</button></div>
+  ${RP.markT==null?`<button class="btn huge grn" data-a="rpmMark" id="rpmMark">📍 MARK START</button>`
+   :`<p class="c amb" id="rpmMarkInfo" style="font-weight:800">Start marked at ${RP.markT.toFixed(3)} s – move ${plural(RP.turns,'full turn')} on, then:</p><button class="btn huge red" data-a="rpmMark" id="rpmMark">📍 MARK END</button><button class="btn ghost sm" data-a="rpmMarkClr" id="rpmMarkClr">Cancel this mark</button>`}
+  <h3>Readings</h3>${rpmReadsHtml()}
+ </div>
+ <div class="card" id="rpiCard"><h2>🧮 rpi calculator</h2>
+  ${rpiHtml()}
+  <p class="sm mut" id="rpiNote">${esc(RPI_NOTE)}</p>
+  ${open?`<button class="btn grn glove" data-a="rpmSave" id="rpmSave">💾 Save to shift (${esc(nice(d.date))} ${esc(d.shift||'')})</button>`:'<p class="mut sm" id="rpmNoShift">Start a shift to save readings to it.</p>'}
+  ${d?rpmSavedHtml(d):''}
+ </div>`}
+Object.assign(A,{
+ rpmCap(el){RP.cap=el.dataset.v;render()},
+ rpmTurns(el){RP.turns=Math.max(1,Math.min(999,(+RP.turns||10)+(+el.dataset.v)));render()},
+ rpmStep(el){rpmStep(+el.dataset.v)},
+ rpmPlay(){if(!RP.url)return;const v=rpmVideo();if(v.paused){try{v.playbackRate=RP.slow}catch(e){}try{const p=v.play();if(p&&p.catch)p.catch(()=>{})}catch(e){}}else{try{v.pause()}catch(e){}}rpmTimeUpd()},
+ rpmMark(){if(!RP.url){toast('Load a clip first',true);return}buzz();const t=rpmT();
+  if(RP.markT==null){RP.markT=t;render();return}
+  const cap=rpmCap(),file=rpmFile();if(!(cap>0)||!(file>0)){toast('Set the capture and file fps first',true);return}
+  const dt=Math.abs(t-RP.markT);if(!(dt>0)){toast('Move the video to the end mark first',true);return}
+  const c=rpmCalc(dt,RP.turns,cap,file);RP.reads.push({turns:RP.turns,dt,real:c.real,cap,file,rpm:c.rpm});RP.markT=null;render();
+  toast(`${fm(Math.round(c.rpm))} RPM${rpmOut(c.rpm)?' – outside 100–1300, check settings':''}`)},
+ rpmMarkClr(){RP.markT=null;render()},
+ rpmDel(el){RP.reads.splice(+el.dataset.v,1);render()},
+ rpiUnits(el){const to=el.dataset.v;if(to===RP.units)return;const k=to==='imperial'?3.280839895:1/3.280839895,cv=v=>{const n=num(v);return n==null?v:String(r2(n*k))};RP.rate=cv(RP.rate);RP.rod=cv(RP.rod);RP.units=to;render()},
+ rpiMode(el){RP.mode=el.dataset.v;render()},
+ rpmSave(){const d=D();if(!shiftOpen(d)){toast('Start a shift first – nothing saved',true);return}const r=rpiCur();if(!r){toast('Enter RPM and a rate first – nothing saved',true);return}
+  if(!Array.isArray(d.rpm))d.rpm=[];d.rpm.push({t:Date.now(),rpm:Math.round(r.rpm),rpi:Math.round(r.rpi),rate:r2(r.rateMh)});
+  if(save()){render();toast(`✔ Saved to ${nice(d.date)} ${d.shift||''} shift`)}else{d.rpm.pop();render()}},
+ async rpmDelSaved(el){const d=D(),L=rpmOf(d),i=+el.dataset.v,x=L[i];if(!x)return;
+  if(!await ask('Delete this reading?',[],{ok:'Delete',danger:true,focusCancel:true,msg:`<div id="rpmDelMsg">${fm(x.rpm)} RPM · ${fm(x.rpi)} rpi${x.t?' · '+esc(hm(x.t)):''}</div>`}))return;
+  L.splice(i,1);if(!L.length)delete d.rpm;save();render();toast('Deleted')}
+});
+document.addEventListener('input',e=>{const el=e.target;if(el.id==='rpmScrub'){rpmSeek(el.value);return}if(!el.matches||!el.matches('[data-rp]'))return;RP[el.dataset.rp]=el.value;
+ if(el.dataset.rp==='fileFps'||el.dataset.rp==='capCustom'){rpmTimeUpd();return}const o=$('#rpiOut');if(o)o.innerHTML=rpiOutHtml(rpiCur())});
+document.addEventListener('change',e=>{const el=e.target;if(el.matches&&el.matches('[data-rpfile]')){const f=el.files&&el.files[0];el.value='';rpmLoadFile(f);return}
+ if(el.matches&&el.matches('[data-rp="fileFps"],[data-rp="capCustom"]'))render()});
+
+/* -- v6.7 Stopwatch (Leo approved via Drill Mentor): standalone, one tap from the RPM tool and the Log tab. It never touches the shift,
+   the run / activity timers, ffdt.v1 or pay. Its own key ffdt.sw = {s: start Date.now() or null, acc: ms banked before the last start,
+   laps: [ms], in: inches typed}. Time shown = acc + (now − s), from timestamps, so it stays right through a screen lock, background or reload. */
+const SW_KEY='ffdt.sw';
+let SWS=null;
+function swGet(){if(SWS)return SWS;let o=null;try{o=JSON.parse(localStorage.getItem(SW_KEY)||'null')}catch(e){o=null}
+ if(!o||typeof o!=='object')o={};SWS={s:typeof o.s==='number'&&isFinite(o.s)?o.s:null,acc:+o.acc>0?+o.acc:0,laps:Array.isArray(o.laps)?o.laps.filter(x=>typeof x==='number'&&x>=0):[],in:o.in==null?'':String(o.in)};return SWS}
+function swPut(){const o=swGet();try{if(o.s==null&&!o.acc&&!o.laps.length&&o.in==='')localStorage.removeItem(SW_KEY);else localStorage.setItem(SW_KEY,JSON.stringify(o))}catch(e){toast('⚠ Phone storage is full – the stopwatch keeps running but may not survive a reload',true)}}
+const swMs=(o=swGet(),now=Date.now())=>Math.max(0,o.acc+(o.s!=null?now-o.s:0));
+// in/min and m/hr from inches advanced over ms
+function swRate(inches,ms){const i=num(inches),min=(+ms)/60000;if(!(i>0)||!(min>0))return null;const ipm=i/min;return{ipm,mh:ipm*60/IN_M,fth:ipm*60/12}}
+function swFmt(ms){ms=Math.max(0,ms||0);const t=Math.floor(ms/100),ds=t%10,s=Math.floor(t/10)%60,m=Math.floor(t/600)%60,h=Math.floor(t/36000);return `${h?h+':'+pad(m):m}:${pad(s)}.${ds}`}
+function swRateHtml(){const o=swGet(),r=o.s==null?swRate(o.in,swMs(o)):null;
+ return r?`<div class="rcres ok" id="swIpm">${r.ipm.toFixed(2)} in/min</div><p class="c" style="font-weight:800" id="swMh">${fm(r.mh)} m/hr · ${fm(r.fth)} ft/hr</p><button class="btn blu glove" data-a="swUse" id="swUse">🧮 Use in rpi calculator</button>`
+  :'<p class="mut sm" id="swIpm">Enter the inches advanced to see in/min and m/hr.</p>'}
+function vSw(){const o=swGet(),run=o.s!=null,ms=swMs(o);
+ return `<button class="btn ghost" data-a="tab" data-v="rpm" id="swBack">← RPM &amp; rpi tool</button>
+ <div class="card" id="swCard"><h2>⏱ Stopwatch</h2><p class="mut sm">Separate from your shift and run timers – it never changes them, your shifts or your pay.</p>
+  <div class="big" id="swTime">${swFmt(ms)}</div><p class="c sm ${run?'grn':'mut'}" id="swState">${run?'● running':ms?'⏸ stopped':'ready'}</p>
+  ${run?`<button class="btn huge red" data-a="swStop" id="swStop">■ STOP</button><button class="btn ghost glove" data-a="swLap" id="swLap">🏁 Lap</button>`
+   :`<button class="btn huge grn" data-a="swStart" id="swStart">▶ ${ms?'START (carry on)':'START'}</button>${ms||o.laps.length?'<button class="btn ghost glove" data-a="swReset" id="swReset">↺ Reset</button>':''}`}
+  ${o.laps.length?`<h3>Laps</h3><div id="swLaps">${o.laps.map((x,i)=>`<div class="kv"><span>Lap ${i+1}</span><b>${swFmt(x-(i?o.laps[i-1]:0))} · ${swFmt(x)}</b></div>`).join('')}</div>`:''}
+ </div>
+ ${!run&&ms?`<div class="card" id="swRateCard"><h2>Advance rate</h2><label>Inches advanced (from your tape)<input data-swin="1" id="swIn" type="number" inputmode="decimal" step="any" value="${esc(o.in)}" autocomplete="off"></label><div id="swRateOut">${swRateHtml()}</div></div>`:''}`}
+Object.assign(A,{
+ swStart(){const o=swGet();if(o.s==null){o.s=Date.now();swPut()}buzz();render()},
+ swStop(){const o=swGet();if(o.s!=null){o.acc=swMs(o);o.s=null;swPut()}buzz();render()},
+ swLap(){const o=swGet();if(o.s==null)return;o.laps.push(swMs(o));swPut();buzz();render()},
+ async swReset(){if(!await ask('Reset the stopwatch?',[],{ok:'Reset',danger:true,focusCancel:true}))return;SWS={s:null,acc:0,laps:[],in:''};swPut();render()},
+ swUse(){const o=swGet(),r=swRate(o.in,swMs(o));if(!r)return;RP.mode='rate';RP.rate=String(r2(RP.units==='imperial'?r.fth:r.mh));tab='rpm';window.scrollTo(0,0);render();toast('Rate filled in from the stopwatch')}
+});
+setInterval(()=>{if(tab!=='sw'||!$('#modal').hidden)return;const o=swGet(),el=$('#swTime');if(el&&o.s!=null)el.textContent=swFmt(swMs(o))},200);
+document.addEventListener('input',e=>{if(e.target.matches&&e.target.matches('[data-swin]')){swGet().in=e.target.value;swPut();const x=$('#swRateOut');if(x)x.innerHTML=swRateHtml()}});
+window.addEventListener('storage',e=>{if(e.key===SW_KEY){SWS=null;if(tab==='sw'&&$('#modal').hidden)render()}});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible'){SWS=null}}); // re-read the key when the app comes back
+
+/* -- v6.7 Tile fix (Leo approved via Drill Mentor): tap Latch / Drill / Pull on the Timer screen (live run) or L / D / P on a finished run
+   and type the real time. The run's Total never changes: the difference moves to the neighbour step – Latch ↔ Drill, Drill ↔ Pull,
+   and Pull ↔ Drill (Pull has no next step). Same idea as the v6.1 "Fix: it really ended after…": the step boundary moves in the run's
+   own timeline (segs), active time is just relabelled, pause segments keep their exact times, and the edit gets the one Undo fix
+   (fixBegin / fixCommit). No new data fields, so no migration; the shared calc (runStats → dayCalc / agg / stats) reads it as usual.
+   Only the current piece is changed (time from before a block stays as it is); a blocked tube's Drill/Pull boundary is not moved.
+   A finished run that already has typed times (r.ov, from ✎ Edit run) gets the change in those typed times, total kept. */
+const TILE_PAIR={latch:['latch','drill'],drill:['drill','pull'],pull:['drill','pull']},TILE_N={latch:'Latch',drill:'Drill',pull:'Pull'};
+const tileRecv=k=>{const[a,b]=TILE_PAIR[k];return k===a?b:a};
+function tilePlan(r,k,X,now=Date.now()){const[A,B]=TILE_PAIR[k],R=tileRecv(k),st=runStats(r),sg=r.segs||[];
+ const clampTo=(x,lo,hi)=>Math.min(hi,Math.max(lo,x));
+ if(r.ov&&(r.ov[A]!=null||r.ov[B]!=null)){const hi=st[k]+st[R],Xc=clampTo(X,0,hi);return{mode:'ov',k,R,X,Xc,lo:0,hi,clamped:Xc!==X,cur:st[k],curR:st[R],newK:Xc,newR:st[R]-(Xc-st[k]),total:st.total}}
+ const P=Math.max(0,...sg.filter(s=>s.t!=='pause').map(s=>+s.p||0));
+ if(B==='pull'&&r.pieces&&r.pieces[P]&&r.pieces[P].blocked)return{err:'This tube is blocked – Drill and Pull can be fixed after the re-run starts.'};
+ const idx=sg.map((s,i)=>i).filter(i=>(+sg[i].p||0)===P&&(sg[i].t===A||sg[i].t===B));
+ if(!idx.length)return{err:`No ${TILE_N[A]} or ${TILE_N[B]} time on this run yet – nothing to move.`};
+ const i0=idx[0],i1=idx[idx.length-1],slice=sg.slice(i0,i1+1);
+ if(slice.some(s=>s.t!==A&&s.t!==B&&s.t!=='pause'))return{err:'These steps are mixed up on this run – use ✎ Edit run instead.'};
+ let seenB=false;for(const s of slice){if(s.t===B)seenB=true;else if(s.t===A&&seenB)return{err:'These steps are mixed up on this run – use ✎ Edit run instead.'}}
+ const len=s=>Math.max(0,(s.e==null?now:s.e)-s.s);let aMs=0,bMs=0;slice.forEach(s=>{if(s.t===A)aMs+=len(s);else if(s.t===B)bMs+=len(s)});
+ const pk=k===A?aMs:bMs,others=st[k]-pk,lo=Math.max(0,others),hi=others+aMs+bMs,Xc=clampTo(X,lo,hi);
+ const newA=k===A?Xc-others:(aMs+bMs)-(Xc-others);
+ const out=[];let acc=0;slice.forEach(s=>{if(s.t==='pause'){out.push(Object.assign({},s));return}const L=len(s);
+  if(acc+L<=newA)out.push(Object.assign({},s,{t:A}));else if(acc>=newA)out.push(Object.assign({},s,{t:B}));
+  else{const T=s.s+(newA-acc);out.push(Object.assign({},s,{t:A,e:T}),Object.assign({},s,{t:B,s:T}))}acc+=L});
+ const segs=[];out.forEach(s=>{const p=segs[segs.length-1];if(p&&s.t!=='pause'&&p.t===s.t&&p.p===s.p&&p.e!=null&&p.e===s.s)p.e=s.e;else segs.push(s)});
+ return{mode:'segs',k,R,X,Xc,lo,hi,clamped:Xc!==X,cur:st[k],curR:st[R],newK:Xc,newR:st[R]-(Xc-st[k]),total:st.total,i0,i1,segs}}
+function tileApply(r,p){if(p.mode==='ov'){r.ov[p.k]=p.newK;r.ov[p.R]=p.newR;return}
+ const sg=r.segs,lastAct=()=>{for(let i=sg.length-1;i>=0;i--)if(sg[i].t!=='pause')return sg[i].t;return null},was=lastAct();
+ sg.splice(p.i0,p.i1-p.i0+1,...p.segs);const now=lastAct();if(r.resume&&r.resume===was&&now)r.resume=now}
+function tileRun(el){if(el.dataset.r){const d=S.days[el.dataset.d],r=d&&(d.runs||[]).find(x=>String(x.id)===String(el.dataset.r));return r?{r,d,live:false}:null}
+ const r=S.run;if(!r)return null;const d=S.days[r.dayId];return d?{r,d,live:true}:null}
+async function tileFix(el){buzz();const k=el.dataset.v;if(!TILE_PAIR[k])return;let x=tileRun(el);if(!x){toast('That run is gone');return}
+ const R=tileRecv(k),st=runStats(x.r);
+ const steps=`<div class="row" style="margin:8px 0"><button type="button" class="btn ghost glove" data-a="tileStep" data-v="-60" style="margin:0">− 1 min</button><button type="button" class="btn ghost glove" data-a="tileStep" data-v="-10" style="margin:0">− 10 s</button><button type="button" class="btn ghost glove" data-a="tileStep" data-v="10" style="margin:0">+ 10 s</button><button type="button" class="btn ghost glove" data-a="tileStep" data-v="60" style="margin:0">+ 1 min</button></div>`;
+ const v=await ask(`Real ${TILE_N[k]} time`,[{k:'tileV',l:`${TILE_N[k]} really took (m:ss or minutes)`,t:'text',v:mmss(st[k])}],{ok:'Next',focus:false,
+  msg:`<div id="tileInfo">Timed: ${TILE_N[k]} ${mmss(st[k])} · ${TILE_N[R]} ${mmss(st[R])} · Total ${mmss(st.total)}. Total stays the same – the difference goes to ${TILE_N[R]}.${st.pause?' Paused time is not touched.':''}</div>`+steps});
+ if(!v)return;const X=fixParse(v.tileV);if(X==null||isNaN(X)){toast('Type a time like 4:30 or 4.5 – nothing changed',true);return}
+ x=tileRun(el);if(!x){toast('That run is gone');return}
+ let p=tilePlan(x.r,k,X);if(p.err){toast(p.err,true);return}
+ if(Math.abs(p.newK-p.cur)<1000&&!p.clamped){toast('Same time – nothing changed');return}
+ const clampMsg=p.clamped?`${TILE_N[k]} can only be ${mmss(p.lo)}–${mmss(p.hi)} on this run (nothing can go below 0), so it is set to ${mmss(p.Xc)}.`:'';
+ const line=`${TILE_N[k]} ${mmss(p.cur)} → ${mmss(p.newK)} · ${TILE_N[R]} ${mmss(p.curR)} → ${mmss(p.newR)} · Total ${mmss(p.total)} (same)`;
+ if(!await fixPreview(`Fix ${TILE_N[k]}?`,line,clampMsg))return;
+ x=tileRun(el);if(!x){toast('That run is gone');return}p=tilePlan(x.r,k,X);if(p.err){toast(p.err,true);return} // re-plan: a live step kept timing while the sheet was open
+ const u=fixBegin(x.d);tileApply(x.r,p);return fixCommit(u,`${TILE_N[k]} ${mmss(p.newK)}, ${TILE_N[R]} ${mmss(p.newR)} (total ${mmss(p.total)} kept)`)}
+Object.assign(A,{tileFix,
+ tileStep(el){const f=$('#mf');if(!f||!f.elements.tileV)return;const c=fixParse(f.elements.tileV.value);f.elements.tileV.value=mmss(Math.max(0,(c==null||isNaN(c)?0:c)+(+el.dataset.v)*1000))}});
+// == v6.7 RPM end
+
 /* ===== Events ===== */
 document.addEventListener('click',e=>{const el=e.target.closest('[data-a]');if(!el)return;const f=A[el.dataset.a];if(f){e.preventDefault();Promise.resolve(f(el)).catch(err=>toast('Error: '+err.message))}});
 const HRS_B=['travel','preop','dir','cross.dir'],HRS_SB=['travel','preop','shiftLen']; // typed hours boxes on the Shift tab / Settings
@@ -2214,7 +2438,8 @@ $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];i
  if(!takeSafe0('import')){toast('⚠ Import cancelled – could not keep a safety copy of your data (phone storage full?). Nothing changed. Export a backup first.',true);return} // QA9
  {let cur=null;try{cur=localStorage.getItem(KEY)}catch(e){}if(cur==null&&S&&!S._corrupt&&Object.keys(S.days||{}).length)cur=JSON.stringify(S);
   if(cur!=null&&safe0Valid(cur)&&!storeSafe(IMP_CUR,cur,IMP_CUR+'.meta',Object.assign(curMeta(cur),{mode:v.mode}))){toast('⚠ Import cancelled – could not keep a copy of your current data (phone storage full?). Nothing changed. Export a backup first.',true);render();return}}
- applyImport(data,v.mode);const tn=tpTake();toastBig(tn?`✔ Imported · travel + pre-op added to ${plural(tn,'quick-add day')} – set a day to 0 in All shifts if he didn't travel`:'✔ Imported')});
+ const tpPre=tpTake(); // v6.7 (QA73-1): the toast counts only the days THIS import filled; fills from before (still pending on the Totals note) are kept for a Merge
+ applyImport(data,v.mode);const tn=tpTake();if(v.mode==='merge')tpAdded=tpPre;toastBig(tn?`✔ Imported · travel + pre-op added to ${plural(tn,'quick-add day')} – set a day to 0 in All shifts if you didn't travel`:'✔ Imported')}); // v6.7 (QA73-2): "you", not "he"
 setInterval(()=>{if(!$('#modal').hidden)return;const act=document.activeElement;const typing=act&&/INPUT|TEXTAREA|SELECT/.test(act.tagName);
  if((tab==='timer'||tab==='log')&&(S.run||runningActs().length)&&!typing)render();else renderHeader()},1000);
 let wl=null;async function wake(){try{if(S.settings.wake&&'wakeLock' in navigator&&document.visibilityState==='visible'){wl=await navigator.wakeLock.request('screen')}else if(!S.settings.wake&&wl){await wl.release();wl=null}}catch(e){}}
@@ -2230,6 +2455,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 
 load();render();wake();
 window.App={S:()=>S,A,tpFill,shiftMap,shiftsCovered,isMyName,nextDayPlan,maintDedupe,maintIds,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+Object.assign(window.App,{tilePlan,tileApply,swRate,swMs,swFmt,swGet,rpmCalc,rpiCalc,rpiBand,rpmAvg,rpmOf,rpmLoadFile,RP:()=>RP,rpmVid:()=>rpmVid}); // == v6.7 RPM
 </script>
 </body>
 </html>
