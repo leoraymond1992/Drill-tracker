@@ -298,6 +298,7 @@ function load(){
   if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){storeWarn='⚠ Phone storage is full – the upgraded data is not saved yet (your old data is untouched). Export a backup now (Settings → Export backup).'}}
   // v6.3: oil change log – default when missing (in memory only; it is stored with the next save, so old data stays byte-identical on load)
   if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};else{if(!Array.isArray(S.maint.log))S.maint.log=[];if(!('dismissed' in S.maint))S.maint.dismissed=null}
+  maintIds(S.maint.log); // v6.4 (QA66-b): entries without an id get a stable one in memory only (written with the next save), so History ✕ works
  }catch(e){
   try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){storeWarn=STORE_FULL}
   loadError="Saved data couldn't be read, restore a backup";
@@ -556,14 +557,14 @@ function fieldHtml(f){
  if(f.t==='select')return `<label>${esc(f.l)}<select name="${f.k}">${f.o.map(o=>{const[val,lab]=Array.isArray(o)?o:[o,o];return `<option value="${esc(val)}" ${String(val)===String(f.v)?'selected':''}>${esc(lab)}</option>`}).join('')}</select></label>`;
  if(f.t==='textarea')return `<label>${esc(f.l)}<textarea name="${f.k}" rows="3">${esc(v)}</textarea></label>`;
  const type=f.t==='num'?'number':f.t==='date'?'date':'text';
- return `<label>${esc(f.l)}<input name="${f.k}" type="${type}" ${f.t==='num'?'inputmode="decimal" step="any"':''} value="${esc(v)}" autocomplete="off"></label>`;
+ return `<label>${esc(f.l)}<input name="${f.k}" type="${type}" ${f.t==='num'?'inputmode="decimal" step="any"':''}${f.max?` max="${esc(f.max)}"`:''} value="${esc(v)}" autocomplete="off"></label>`;
 }
 function ask(title,fields=[],opt={}){
  return new Promise(res=>{
   const m=$('#modal');
   m.innerHTML=`<div class="sheet"><h2>${esc(title)}</h2>${opt.msg?`<div class="mut" style="margin:0 0 12px">${opt.msg}</div>`:''}<form id="mf" novalidate>${fields.map(fieldHtml).join('')}
-  ${opt.alt?`<button type="button" class="btn blu" id="malt">${esc(opt.alt)}</button>`:''}
-  <div class="row"><button type="button" class="btn ghost" id="mcancel">Cancel</button><button type="submit" class="btn ${opt.danger?'red':'grn'}" id="mok">${esc(opt.ok||'Save')}</button></div></form></div>`;
+  ${opt.alt?`<button type="button" class="btn blu${opt.altCls?' '+opt.altCls:''}" id="malt">${esc(opt.alt)}</button>`:''}
+  <div class="row"><button type="button" class="btn ghost" id="mcancel">${esc(opt.cancel||'Cancel')}</button><button type="submit" class="btn ${opt.danger?'red':'grn'}" id="mok">${esc(opt.ok||'Save')}</button></div></form></div>`;
   m.onclick=null;m.oninput=null;m.onchange=null;m.hidden=false;
   const form=$('#mf');
   const collect=()=>{const o={};fields.forEach(f=>{const el=form.elements[f.k];if(!el)return;o[f.k]=f.t==='check'?el.checked:f.t==='num'?num(el.value):el.value});return o};
@@ -606,6 +607,15 @@ const maintLast=k=>mLog().filter(e=>e.item===k).sort(maintSort)[0]||null;
 const mDay=s=>{const d=parseD(s);return `${MON[d.getMonth()]} ${d.getDate()}`};
 const agoTxt=(s,today)=>{const n=Math.round((parseD(today)-parseD(s))/864e5);return n===0?'today':n===1?'1 day ago':n>0?`${n} days ago`:`in ${-n} day${n===-1?'':'s'}`};
 function maintEnsure(){if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};if(!Array.isArray(S.maint.log))S.maint.log=[];return S.maint}
+// v6.4 (QA66-b): an entry with no id gets one made from its own content (item, date, note, savedAt), so the same id-less entry
+// imported twice gets the same id and the merge overwrites it instead of adding a copy. A clash inside one log gets a -2, -3… suffix.
+function maintIdOf(e){const t=[e.item,e.date,String(e.note==null?'':e.note),+e.savedAt||0].join('|');let h=5381;for(let i=0;i<t.length;i++)h=((h*33)^t.charCodeAt(i))>>>0;return 'mx'+h.toString(36)}
+function maintIds(log){if(!Array.isArray(log))return log;const used=new Set(log.filter(e=>e&&typeof e==='object'&&e.id!=null&&e.id!=='').map(e=>String(e.id)));
+ log.forEach(e=>{if(!e||typeof e!=='object'||(e.id!=null&&e.id!==''))return;const b=maintIdOf(e);let id=b,n=1;while(used.has(id))id=b+'-'+(++n);e.id=id;used.add(id)});return log}
+// v6.4 (QA66-a): one entry per item per week – keep the newest (savedAt; on a tie the later one in the log). keys = optional Set of 'item|weekStart' to limit it.
+function maintDedupe(log,keys){if(!Array.isArray(log))return log;const best=new Map();
+ log.forEach((e,i)=>{if(!e||typeof e!=='object'||!MAINT_N[e.item]||!isYmd(e.date))return;const k=e.item+'|'+weekStart(e.date);if(keys&&!keys.has(k))return;const b=best.get(k);if(b===undefined||(+e.savedAt||0)>=(+log[b].savedAt||0))best.set(k,i)});
+ const keep=new Set(best.values());return log.filter((e,i)=>{if(!e||typeof e!=='object'||!MAINT_N[e.item]||!isYmd(e.date))return true;const k=e.item+'|'+weekStart(e.date);if(keys&&!keys.has(k))return true;return keep.has(i)})}
 let maintHistOpen=false,maintFilter='all';
 function maintBanner(){try{const wd=workDate();if(parseD(wd).getDay()!==0)return '';const ws=weekStart(wd);if(maintDone(ws)||(S.maint&&S.maint.dismissed===wd))return '';const w=maintWeek(ws);
  return `<div class="warn" id="maintBanner" style="padding:10px"><button class="btn glove" data-a="maintOpen" id="maintBannerBtn" style="margin:0 0 8px">🛢 Sunday oil change: ${MAINT_IT.map(([k,n])=>`${n} ${w[k]?'☑':'☐'}`).join(' ')}</button><button class="btn ghost" data-a="maintDismiss" id="maintDismiss" style="margin:0">Not today</button></div>`}catch(e){return ''}}
@@ -619,17 +629,21 @@ function maintCard(){const wd=workDate(),ws=weekStart(wd),w=maintWeek(ws);
  <div id="maintLast">${MAINT_IT.map(([k,n])=>{const e=maintLast(k);return `<div class="kv"><span>${esc(n)}: ${e?`last changed ${esc(mDay(e.date))} (${esc(agoTxt(e.date,wd))})`:'no change saved yet'}</span></div>`}).join('')}</div>
  <button class="btn ghost" data-a="maintHist" id="maintHistBtn" style="margin-top:8px">${maintHistOpen?'Hide history':'📜 History'}</button>
  ${maintHistOpen?maintHistHtml(wd):''}</div>`}
-async function maintOpen(){buzz();const wd=workDate(),ws=weekStart(wd),w=maintWeek(ws),fields=[];
- MAINT_IT.forEach(([k,n])=>{const e=w[k];fields.push({k:'c_'+k,l:'✔ '+n+' changed',t:'check',v:!!e,cls:'big'},{k:'d_'+k,l:`${n}: date changed`,t:'date',v:e?e.date:wd},{k:'n_'+k,l:`${n}: note (oil used, hour meter) – optional`,t:'text',v:e?String(e.note||''):''})});
+async function maintOpen(){buzz();const wd=workDate(),ws=weekStart(wd),w=maintWeek(ws),fields=[],maxD=[wd,todayStr(new Date(Date.now()))].sort().pop(); // v6.4 (QA66-c): the date picker stops at max(work date, today)
+ MAINT_IT.forEach(([k,n])=>{const e=w[k];fields.push({k:'c_'+k,l:'✔ '+n+' changed',t:'check',v:!!e,cls:'big'},{k:'d_'+k,l:`${n}: date changed`,t:'date',v:e?e.date:wd,max:maxD},{k:'n_'+k,l:`${n}: note (oil used, hour meter) – optional`,t:'text',v:e?String(e.note||''):''})});
  const v=await ask('🛢 Oil change',fields,{ok:'Save',focus:false,msg:`<div id="maintSheetInfo">Week ${esc(mDay(ws))}–${esc(mDay(addDays(ws,6)))} (Sun–Sat). Tick what you changed.</div>`});if(!v)return;
- const maxD=[wd,todayStr(new Date(Date.now()))].sort().pop();
  for(const[k,n]of MAINT_IT)if(v['c_'+k]){const d=String(v['d_'+k]||'').trim();if(!isYmd(d)){toast(`Enter the date the ${n} oil was changed – nothing saved`,true);return}if(d>maxD){toast(`${n}: the date can't be in the future – nothing saved`,true);return}}
  const rm=MAINT_IT.filter(([k])=>!v['c_'+k]&&w[k]);let doRm=true;
  if(rm.length)doRm=!!await ask('Remove this week\'s check?',[],{ok:'Remove',danger:true,focusCancel:true,msg:`<div id="maintRmMsg">Deletes the saved oil change for ${rm.map(([k,n])=>`${esc(n)} (${esc(nice(w[k].date))})`).join(', ')}. The others are saved either way.</div>`});
  const M=maintEnsure(),now=Date.now();let n=0;
+ const touched=new Set();
  MAINT_IT.forEach(([k])=>{if(!v['c_'+k])return;const d=String(v['d_'+k]).trim(),note=String(v['n_'+k]||'').trim(),e=w[k];
-  if(e){if(e.date!==d||String(e.note||'')!==note){e.date=d;e.note=note;e.savedAt=now;n++}}else{M.log.push({id:uid(),item:k,date:d,note,savedAt:now});n++}});
- if(doRm)rm.forEach(([k])=>{const i=M.log.indexOf(w[k]);if(i>=0){M.log.splice(i,1);n++}});
+  if(e){if(e.date!==d||String(e.note||'')!==note){e.date=d;e.note=note;e.savedAt=now;n++;touched.add(k+'|'+weekStart(d))}}else{M.log.push({id:uid(),item:k,date:d,note,savedAt:now});n++;touched.add(k+'|'+weekStart(d))}});
+ // v6.4 (QA66-a): a date edit that lands in a week that already has that item keeps only the newest (the one just saved); this week's items are cleaned too
+ MAINT_IT.forEach(([k])=>{if(v['c_'+k])touched.add(k+'|'+ws)});
+ if(touched.size){const L0=M.log.length;M.log=maintDedupe(M.log,touched);if(M.log.length!==L0)n++}
+ // v6.4 (QA66-a): unticking removes ALL of that item's entries in this week (not just the newest), so the check really goes away
+ if(doRm)rm.forEach(([k])=>{const L0=M.log.length;M.log=M.log.filter(e=>!(e&&typeof e==='object'&&e.item===k&&isYmd(e.date)&&weekStart(e.date)===ws));if(M.log.length!==L0)n++});
  if(!n){toast('Nothing changed');render();return}
  save();render();toast('✔ Oil change saved'+(maintDone(weekStart(workDate()))?' – all 3 done this week':''))}
 async function maintDel(id){const M=maintEnsure(),e=M.log.find(x=>x&&String(x.id)===String(id));if(!e)return;
@@ -691,31 +705,44 @@ function wrapHtml(d){const w=wrapData(d);
  <h3 style="color:var(--blu)">Pay hours</h3>${w.cats.map(([k,h])=>`<div class="kv"><span>${esc(k)}</span><b>${th(h)}</b></div>`).join('')}
  <div class="kv"><span><b>TOTAL HOURS</b></span><b class="amb" id="wrapTotal">${th(w.total)||0}</b></div>
  ${w.noFtAsk?`<div class="warn" id="wrapNoFt">⚠ Extra Total is unconfirmed – answer it on the Shift tab.</div>`:''}</div>`}
-function needDay(){return `<div class="card c"><h2>No shift open</h2><p class="mut">Start your shift to begin logging.</p><button class="btn huge" data-a="newShift">▶ Start new shift</button></div>`}
-
+function needDay(){return `<div class="card c" id="needDay"><h2>No shift open</h2><p class="mut">Tap START NEW DAY to begin. It fills in the date, crew, hole and depth for you.</p>${startDayBtn()}<button class="btn ghost" data-a="newShift" id="newShiftBtn">＋ Blank shift for today (no carry-over)</button></div>`}
+/* v6.4 usability pass (Leo: "it should be very easy to use this app"): the big action sits at the top – END SHIFT while a shift is open,
+ START NEW DAY when none is open or right after End shift. The everyday fields stay on screen; the rarely used ones (job, drill, bit,
+ size, covered, travel / pre-op, extra metres, the cross-shift card, notes, blank shift) are under "More" – nothing was removed. */
+let shiftMore=false;
+const shiftOpen=d=>!!(d&&!d.endedAt);
+function startDayBtn(){return `<button class="btn huge grn" data-a="startDay" id="startDayBtn">▶ START NEW DAY</button>`}
+function shiftTop(d){
+ if(shiftOpen(d))return `<div class="card" id="shiftTop"><div class="kv"><span id="shiftTopTxt">${esc(nice(d.date))} · ${esc(d.shift==='Day'?'Days':'Nights')} · ${esc(d.hole||'No hole')}</span><b class="amb">${fm(dayDepth(d))||'—'} m</b></div>
+ <button class="btn huge red" data-a="endDay" id="endDayBtn">🏁 END SHIFT</button></div>`;
+ return `<div class="card" id="shiftTop">${d?`<p class="sm" id="shiftEndedTxt">✔ ${esc(nice(d.date))} ${esc(d.shift||'')} shift ended${d.endedAt?' at '+esc(hm(d.endedAt)):''} · ${fm(dayDepth(d))||'—'} m</p>`:''}${startDayBtn()}</div>`}
 function vShift(){
  const d=D();if(!d)return needDay()+maintCard()+recentCard();
- const c=d.cross||{},mc=mineCalc(d);
- return maintCard()+`
+ const c=d.cross||{},mc=mineCalc(d),more=shiftMore||!!mc.noFtAsk; // an unanswered Extra Total opens More so the question can be seen
+ return shiftTop(d)+`
  <div class="card"><h2>My shift</h2>
   <div class="g2">${inp('date','Date','date')}${inp('shift','Day / Night','select',{opts:['Night','Day']})}</div>
-  <div class="g2">${inp('job','Job No','text',{ph:'NexGen'})}${inp('hole','Hole No','text',{ph:'RK-26-306-C1'})}</div>
+  ${inp('hole','Hole No','text',{ph:'RK-26-306-C1'})}
   <div class="g2">${inp('driller','Driller (this shift)')}${inp('helper','Helper')}</div>
   ${crewPick(d)}${inp('helper2','2nd helper (optional)')}
+  <div class="g2">${inp('startDepth','Start depth (m)','num')}<div class="kv" style="align-self:end"><span>Now</span><b id="dCur" class="amb">${fm(dayDepth(d))||'—'} m</b></div></div>
+  <button class="btn ghost sm" data-a="editDepth" style="margin:6px 0 12px">✎ Correct current depth</button>
+  ${inp('dirMode','🧭 Directional mode – new timed runs are directional (don\'t count)','check')}
+  ${inp('dir','Directional hours (3 m credit per hr)','num')}
+ </div>`+maintCard()+`
+ <button class="btn ghost" data-a="shiftMore" id="shiftMoreBtn">${more?'▲ Less':'⋯ More'} – job, drill, bit, travel, extra metres, cross shift, notes</button>
+ <div id="shiftMore"${more?'':' hidden'}>
+ <div class="card"><h2>Shift details</h2>
+  <div class="g2">${inp('job','Job No','text',{ph:'NexGen'})}${inp('size','Size','select',{opts:['NQ','HQ','BQ','PQ','NQ3','HQ3']})}</div>
   <div class="g2">${inp('drillType','Drill type')}${inp('drillNumber','Drill number')}</div>
   ${inp('bitId','Bit ID in hole (optional, for bit alerts)','text',{ph:'e.g. B456'})}
-  <p class="mut sm" style="margin-top:-6px">Defaults to your name in Settings. Change it if someone covered your shift.</p>
+  <p class="mut sm" style="margin-top:-6px">Driller defaults to your name in Settings. Change it if someone covered your shift.</p>
   ${inp('covered','Driller off / covered (someone else ran this shift)','check')}
-  <div class="g2">${inp('size','Size','select',{opts:['NQ','HQ','BQ','PQ','NQ3','HQ3']})}${inp('startDepth','Start depth (m)','num')}</div>
-  <div class="kv"><span>Current depth</span><b id="dCur" class="amb">${fm(dayDepth(d))||'—'} m</b></div>
-  <button class="btn ghost sm" data-a="editDepth" style="margin:6px 0 12px">✎ Correct current depth</button>
   <div class="g2">${inp('travel','Travel hrs','num')}${inp('preop','Pre-op hrs','num')}</div>
  </div>
  <div class="card"><h2>My metres · ${esc(d.shift||'')} shift</h2>
   <div class="kv"><span>Timed runs (regular · directional)</span><b>${fm(mc.reg)} m · ${fm(mc.dirRunM)} m</b></div>
-  ${inp('dirMode','🧭 Directional mode – new timed runs are directional (don\'t count)','check')}
-  ${inp('dir','Directional hours (3 m credit per hr)','num')}
-  ${mc.dirRunMs?`<p class="mut sm" style="margin-top:-6px">Timed directional runs: ${fh(H(mc.dirRunMs))||'0'} h (${fdur(mc.dirRunMs)}). These hours go on the report only if you tick the box below — the number you typed is not changed.</p>${inp('dirUseTimed','Use timed directional hours on the report (does not change the number you typed)','check')}`:''}
+  ${mc.dirRunMs?`<p class="mut sm">Timed directional runs: ${fh(H(mc.dirRunMs))||'0'} h (${fdur(mc.dirRunMs)}). These hours go on the report only if you tick the box below — the number you typed is not changed.</p>${inp('dirUseTimed','Use timed directional hours on the report (does not change the number you typed)','check')}`:''}
   <h3>Extra drilled metres (counts) – only metres NOT already on the timer</h3>
   <div class="g3">${inp('mine.from','From (m)','num')}${inp('mine.to','To (m)','num')}${inp('mine.m','Total','num',{ph:'auto'})}</div>
   <h3>Extra directional metres (doesn't count) – only metres NOT already on the timer</h3>
@@ -738,7 +765,8 @@ function vShift(){
   ${inp('reportNotes','Extra report comments (one per line, goes in General Comments)','textarea')}
   ${inp('notes','Notes & lessons learned (private)','textarea',{rows:4,ph:'What worked, ground, bit behaviour, pressures…'})}
  </div>
- <button class="btn ghost" data-a="newShift">＋ Start a new shift (new day)</button>`+recentCard();
+ <button class="btn ghost" data-a="newShift">＋ Blank shift for today (no carry-over)</button>
+ </div>`+recentCard();
 }
 function sumKv(x,id){return `<div class="kv"><span>Drilled metres (counts)</span><b id="${id}Drill">${fm(x.drill)} m</b></div>
   <div class="kv"><span>Directional credit (${fm(x.dir)} h × 3)</span><b id="${id}Cred">${fm(x.cred)} m</b></div>
@@ -1155,6 +1183,7 @@ const A={
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
+ startDay(){return startDay()},endDay(){return endDay()},shiftMore(){shiftMore=!shiftMore;render()},crossEdit(el){return crossEdit(el.dataset.v)},
  maintOpen(){return maintOpen()},maintDismiss(){const M=maintEnsure();M.dismissed=workDate();save();render();toast('Oil change reminder hidden for today')},
  maintHist(){maintHistOpen=!maintHistOpen;render()},maintF(el){maintFilter=el.dataset.v||'all';maintHistOpen=true;render()},maintDel(el){return maintDel(el.dataset.v)},
  makeCur(el){if(S.cur!==el.dataset.v)clearFix();S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
@@ -1745,6 +1774,98 @@ async function bfUndo(){let prev=null,meta={};try{prev=localStorage.getItem(BF_P
 function onBfHelperAdd(el){const r=bfRows[+el.dataset.bfh];const n=String(el.value||'').trim();if(!r||!n)return;r.helpers=Array.isArray(r.helpers)?r.helpers:[];if(!r.helpers.some(x=>x.toLowerCase()===n.toLowerCase()))r.helpers.push(n);render()}
 async function crossDel(id){const d=(S.crossDays||{})[id];if(!d)return;if(!await confirmBox(`Delete ${d.driller||'cross shift'}'s ${nice(d.date)} ${d.shift} row?`))return;delete S.crossDays[id];save();render();toastBig('🗑 Cross-shift row deleted')}
 
+/* ===== v6.4: START NEW DAY (2 steps) and END SHIFT =====
+ Leo: "a button on the main screen for end shift and then a button to press for the next day" and "the depth won't continue because
+ day shift will be drilling so we need to input their shift as well".
+ Step 1 = the cross shift that drills between Leo's shifts (Day shift when he is on Nights, Night shift when he is on Days), saved as a
+ normal cross-shift row in S.crossDays (the same model as Add past shifts: bfDay + bfCheck) – stats only, never his totals, pay or report.
+ Step 2 = his new shift, starting at the cross shift's To depth (or his last end depth when Step 1 is skipped). Existing shifts are never
+ changed; a shift (or cross row) already saved for that date and Days/Nights blocks a second one. */
+function nextDayPlan(){const last=lastDay(),wd=workDate();
+ // the day after the last shift, but never a date before today's work date (an old last shift would give a stale date)
+ const from=last&&isDate(last.date)?[addDays(last.date,1),wd].sort().pop():wd;
+ const h=hitchInfo(from);let date=from;if(h&&!h.on){const nx=nextWorkDay(from);if(nx)date=nx} // rotation (anchors, day / type overrides) when set
+ const hd=hitchInfo(date),shift=hd?hd.type:(last&&last.shift==='Day'?'Day':last?'Night':schedType(date));
+ const lc=Array.isArray(S.settings.lastCrew)?S.settings.lastCrew:[];
+ const driller=String((last&&!last.covered&&last.driller)||S.settings.driller||myName()).trim();
+ const helper=last?String(last.helper||''):String(lc[0]||''),helper2=last?String(last.helper2||''):String(lc[1]||'');
+ const endDepth=last?dayDepth(last):null;
+ // the cross shift that drills before this one: a Night shift starts on this date's evening, so the Day shift before it has the same date;
+ // a Day shift follows the Night shift dated the evening before
+ const cShift=shift==='Night'?'Day':'Night',cDate=shift==='Night'?date:addDays(date,-1);
+ return{last,date,shift,driller,helper,helper2,endDepth,cDate,cShift,hole:last?String(last.hole||''):'',drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||'')}}
+const myDupe=(date,shift)=>allDays().find(d=>d.date===date&&(d.shift==='Day'?'Day':'Night')===shift)||null;
+const crossDupe=(date,shift,exceptId)=>crossDayList().find(d=>d.id!==exceptId&&d.date===date&&(d.shift==='Day'?'Day':'Night')===shift)||null;
+const shiftWord=s=>s==='Day'?'Day':'Night';
+const splitHelpers=t=>String(t||'').split(',').map(x=>x.trim()).filter(Boolean);
+const crossHelpers=d=>[d.helper,...splitHelpers(d.helper2)].map(x=>String(x||'').trim()).filter(Boolean);
+function crossRowOf(d){const mi=d.mine||{},fr=mi.from??d.startDepth??null,to=mi.to??d.curDepth??null;
+ return{date:d.date,shift:d.shift==='Day'?'Day':'Night',driller:String(d.driller||''),from:fr==null?'':String(fr),to:to==null?'':String(to),counted:mi.m==null?'':String(mi.m),countedEdited:mi.m!=null,dirH:d.dir?String(d.dir):'',hrs:d.bfHours==null?'':String(d.bfHours),notes:String(d.notes||''),helpers:crossHelpers(d),drillType:String(d.drillType||''),drillNumber:String(d.drillNumber||'')}}
+// The cross-shift form (Step 1 and Edit). Same checks as Add past shifts (bfCheck: To deeper than From, hours 0–24, counted ≥ 0),
+// plus: a driller who is not you (or it would be your shift) and one row per date and Days/Nights. Errors show in the sheet only.
+async function crossForm(title,row,o={}){const fstr=v=>v==null?'':String(v);let bad='';
+ for(;;){
+  const fields=[...(o.edit?[{k:'date',l:'Date',t:'date',v:row.date},{k:'shift',l:'Days / Nights',t:'select',v:row.shift,o:[['Night','Nights'],['Day','Days']]}]:[]),
+   {k:'driller',l:'Their driller',t:'text',v:row.driller},{k:'from',l:'From depth (m)',t:'num',v:row.from},{k:'to',l:'To depth (m)',t:'num',v:row.to},
+   {k:'helpers',l:'Their helpers (comma between names)',t:'text',v:(row.helpers||[]).join(', ')},
+   {k:'counted',l:'Counted metres (optional – blank = To − From)',t:'num',v:row.counted},{k:'dirH',l:'Directional hours (optional)',t:'num',v:row.dirH}];
+  const v=await ask(title,fields,{ok:o.ok||'Save',alt:o.skip?'⏭ SKIP – they didn\'t drill / I don\'t know yet':null,altCls:'huge',focus:false,
+   msg:(bad?`<div class="err" id="crossErr">✖ ${esc(bad)}</div>`:'')+(o.msg||'')});
+  if(!v)return null;if(v._alt)return 'skip';
+  const r=Object.assign({},row,{driller:String(v.driller||'').trim(),from:fstr(v.from),to:fstr(v.to),counted:fstr(v.counted),dirH:fstr(v.dirH),helpers:splitHelpers(v.helpers)});
+  if(o.edit){r.date=String(v.date||'');r.shift=v.shift==='Day'?'Day':'Night'}
+  r.countedEdited=r.counted!=='';
+  const c=bfCheck(r,0,[r]);bad='';
+  if(!r.driller)bad='Enter their driller';else if(isMyName(r.driller))bad=`That's your name – this is the other crew's shift`;
+  else if(c.errs.length)bad=c.errs[0];
+  else{const dup=crossDupe(r.date,r.shift,o.edit);if(dup)bad=`${shiftWord(r.shift)} shift on ${nice(r.date)} is already saved (${dup.driller||'?'}, ${fm(mineCalc(dup).counted)} m)`}
+  row=r;if(!bad)return r}}
+function crossNames(r){const dn=r.driller;if(dn&&!isMyName(dn)&&!(S.settings.drillerNames||[]).some(x=>x.toLowerCase()===dn.toLowerCase()))S.settings.drillerNames=[dn,...(S.settings.drillerNames||[])].slice(0,20)}
+async function crossEdit(id){const old=(S.crossDays||{})[id];if(!old)return;
+ const r=await crossForm(`Edit ${old.driller||'cross shift'} · ${nice(old.date)}`,crossRowOf(old),{edit:id,ok:'✔ Save changes',msg:'<div id="crossEditInfo">Cross shift – stats only, never in your totals.</div>'});
+ if(!r||r==='skip')return;const nd=bfDay(r);nd.id=old.id;nd.created=old.created||nd.created;
+ S.crossDays[id]=nd;crossNames(r);save();render();toastBig('✔ Cross shift updated');return nd}
+async function startDay(){buzz();const cur=D();
+ if(S.run){toast('Finish or cancel the running run first (END SHIFT stops it)',true);return}
+ if(runningActs().length){toast('A timer is still running – tap END SHIFT first, it stops the timers',true);return}
+ if(shiftOpen(cur)&&((cur.runs||[]).length||(cur.acts||[]).length)){if(!await ask('Start a new day?',[],{ok:'Yes, new day',msg:`Your ${esc(nice(cur.date))} shift is still open. It stays saved as it is – you can end it later from All shifts.`}))return}
+ const P=nextDayPlan();
+ const openMine=async ex=>{if(await ask('Shift already there',[],{ok:'Open it',msg:`<div id="dupMine">You already have a ${esc(shiftWord(P.shift))} shift on ${esc(nice(P.date))}${ex.hole?` (${esc(ex.hole)})`:''}. Nothing new was made.</div>`})){S.cur=ex.id;clearFix();save();tab='shift';render()}};
+ let ex=myDupe(P.date,P.shift);if(ex){toast(`You already have a ${shiftWord(P.shift)} shift on ${nice(P.date)}`,true);return openMine(ex)}
+ // Step 1: the cross shift
+ let cx=crossDupe(P.cDate,P.cShift),startD=P.endDepth,src=P.endDepth!=null?'your last end depth':'';
+ if(cx){const v=await ask(`${shiftWord(P.cShift)} shift already saved`,[],{ok:'→ Next: my shift',alt:'✎ Edit that cross shift',msg:`<div id="dupCross">${esc(cx.driller||'?')} · ${esc(nice(cx.date))} ${esc(cx.shift)} · ${fm(mineCalc(cx).counted)} m is already saved. A second one can't be added.</div>`});
+  if(!v)return;if(v._alt){const e=await crossEdit(cx.id);if(e)cx=e}
+  const t=(cx.mine||{}).to??cx.curDepth;if(t!=null){startD=t;src=`${cx.driller||'their'}'s To depth`}}
+ else{const prev=crossDayList().filter(d=>d.shift===P.cShift).sort((a,b)=>(b.date||'').localeCompare(a.date||'')||(b.created||0)-(a.created||0))[0];
+  const row={date:P.cDate,shift:P.cShift,driller:prev?String(prev.driller||''):String((P.last&&P.last.cross&&P.last.cross.driller)||''),from:P.endDepth==null?'':String(P.endDepth),to:'',counted:'',countedEdited:false,dirH:'',hrs:'',notes:'',
+   helpers:prev?crossHelpers(prev):splitHelpers(P.last&&P.last.cross&&P.last.cross.helper),drillType:P.drillType,drillNumber:P.drillNumber};
+  const r=await crossForm(`Step 1 of 2 · ${shiftWord(P.cShift)} shift ${mDay(P.cDate)}`,row,{skip:true,ok:'✔ Save → Step 2',msg:`<div id="crossStepInfo">What did the ${esc(shiftWord(P.cShift).toLowerCase())} shift drill before your ${esc(shiftWord(P.shift).toLowerCase())} shift? Stats only – never in your totals, pay or report.</div>`});
+  if(!r)return;
+  if(r!=='skip'){const nd=bfDay(r);S.crossDays[nd.id]=nd;crossNames(r);save();const t=num(r.to);if(t!=null){startD=t;src=`${r.driller}'s To depth`}}}
+ // Step 2: your new shift
+ ex=myDupe(P.date,P.shift);if(ex){toast(`You already have a ${shiftWord(P.shift)} shift on ${nice(P.date)}`,true);return openMine(ex)}
+ const helpers=[P.helper,P.helper2].filter(Boolean).join(', ');
+ const v=await ask(`Step 2 of 2 · Your ${shiftWord(P.shift)} shift`,[{k:'sd',l:'Start depth (m)',t:'num',v:startD}],{ok:'▶ START MY SHIFT',focus:false,msg:`<div id="newDayInfo">
+  <div class="kv"><span>Date</span><b>${esc(nice(P.date))} · ${esc(P.shift==='Day'?'Days':'Nights')}</b></div>
+  <div class="kv"><span>Driller</span><b>${esc(P.driller||'—')}</b></div><div class="kv"><span>Helpers</span><b>${esc(helpers||'—')}</b></div>
+  <div class="kv"><span>Hole</span><b>${esc(P.hole||'—')}</b></div><div class="kv"><span>Drill</span><b>${esc([P.drillType,P.drillNumber].filter(Boolean).join(' #'))||'—'}</b></div>
+  ${src?`<p class="mut sm" id="newDaySrc">Start depth is ${esc(src)}.</p>`:''}</div>`});
+ if(!v)return;
+ ex=myDupe(P.date,P.shift);if(ex)return openMine(ex);
+ const d=newDayObj();Object.assign(d,{date:P.date,shift:P.shift,driller:P.driller,helper:P.helper,helper2:P.helper2,startDepth:v.sd==null?null:v.sd});
+ clearFix();shiftMore=false;save();tab='shift';window.scrollTo(0,0);render();toastBig(`▶ ${shiftWord(P.shift)} shift ${nice(P.date)} started · ${fm(d.startDepth)||'?'} m`);return d}
+const liveTimerNames=()=>[...(S.run?['Core run']:[]),...runningActs().map(x=>ACTS[x.a.type]?.n||x.a.type)];
+async function endDay(){buzz();const d=D();if(!d){toast('No shift open');return}
+ const live=liveTimerNames();
+ if(live.length){if(!await ask('End shift – stop timers?',[],{ok:'⏹ Stop timers & end shift',danger:true,focusCancel:true,msg:`<div id="endStopMsg">These timers are running and will be stopped now:<ul>${live.map(n=>`<li>${esc(n)}</li>`).join('')}</ul></div>`}))return;
+  if(S.run){const r=S.run,s=curSeg();if(s.e==null){s.e=Date.now();r.endEarly=true;save()} // the run's end is frozen now, then the usual depth sheet
+   await finishRun(s.e,true);if(S.run){toast('Run not saved – shift not ended. The run end is kept at '+hm(s.e)+'.',true);render();return}}
+  const ts=Date.now();runningActs().forEach(({a})=>{endActPause(a,ts);a.e=ts;releaseAll(a,ts)});save();render()}
+ const was=d.endedAt;await A.endShift();
+ if(!d.endedAt||d.endedAt===was)return;
+ if(await ask('✔ Shift saved',[],{ok:'📋 Open report',cancel:'Not now',msg:'<div id="endReportMsg">Want to look at or share the report?</div>'})){tab='report';window.scrollTo(0,0);render()}}
+
 /* ===== v6: Me vs cross shift stats – same calculator as the report (dayCalc / mineCalc / crossCalc / agg) ===== */
 let statF='all',statCustom={from:'',to:''},statPrintOn=false;
 function statRange(){const wd=workDate();
@@ -1800,7 +1921,7 @@ function vStats(){const rg=statRange(),sd=statsData(rg);
  <div class="card"><h2>By hitch</h2>${statGroupTable(sd.hitches,'stHitch')}</div>
  <div class="card"><button class="btn" data-a="statPrint" data-v="1" id="statPrintBtn">🖨 Print preview</button><button class="btn blu" data-a="statShare" id="statShare">📤 Share / copy summary</button>
  <p class="mut sm">Same counted-metres math as the report. Cross-shift rows never count in your totals.${S.settings.showCrewInShare?'':' Helper names are left out of shared / printed stats.'}</p></div>
- ${cd.length?`<div class="card"><h2>Cross-shift rows</h2>${cd.map(d=>`<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift)} · ${esc(d.driller||'')}</b><span class="mut sm">${fm(mineCalc(d).counted)} m${trimNote(d.notes)?' · “'+esc(d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="crossDel" data-v="${d.id}">🗑</button></div>`).join('')}</div>`:''}`}
+ ${cd.length?`<div class="card"><h2>Cross-shift rows</h2>${cd.map(d=>`<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift)} · ${esc(d.driller||'')}</b><span class="mut sm">${fm(mineCalc(d).counted)} m${trimNote(d.notes)?' · “'+esc(d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="crossEdit" data-v="${d.id}" aria-label="Edit">✎</button><button class="btn ghost sm" data-a="crossDel" data-v="${d.id}">🗑</button></div>`).join('')}</div>`:''}`}
 async function shareText(title,text){
  if(navigator.share){try{await navigator.share({title,text});toast('Shared ✔');return 'shared'}catch(e){if(e&&e.name==='AbortError')return 'cancelled'}}
  copyText(text);return 'copied'}
@@ -1906,7 +2027,7 @@ function updDerived(){const d=D();if(!d)return;const c=d.cross||{},set=(id,t)=>{
 function applyImport(data,mode){
  const keep=S&&S.settings?{drivePending:S.settings.drivePending,driveLast:S.settings.driveLast,driveConsented:S.settings.driveConsented}:{};
  if(mode==='replace'){S=data}else{if(S&&S._corrupt)S.days={};Object.assign(S.days,data.days);if(data.crossDays&&typeof data.crossDays==='object')S.crossDays=Object.assign({},S.crossDays||{},data.crossDays);if(data.settings)S.settings=Object.assign({},S.settings,data.settings);if(data.cur)S.cur=data.cur;
-  if(data.maint&&Array.isArray(data.maint.log)){const M=maintEnsure();data.maint.log.forEach(e=>{if(!e||typeof e!=='object')return;const i=M.log.findIndex(x=>x&&e.id!=null&&String(x.id)===String(e.id));if(i>=0)M.log[i]=e;else M.log.push(e)})}} // v6.3: merge adds / overwrites oil changes by id
+  if(data.maint&&Array.isArray(data.maint.log)){const M=maintEnsure();maintIds(M.log);const inc=maintIds(data.maint.log.filter(e=>e&&typeof e==='object').map(e=>Object.assign({},e)));inc.forEach(e=>{const i=M.log.findIndex(x=>x&&typeof x==='object'&&String(x.id)===String(e.id));if(i>=0)M.log[i]=e;else M.log.push(e)});M.log=maintDedupe(M.log)}} // v6.3: merge adds / overwrites oil changes by id; v6.4 (QA66-a/b): id-less entries get content ids first (a repeat merge overwrites, never duplicates), then one per item per week, newest kept
  if(S){delete S._corrupt;S.settings=Object.assign({},S.settings||{},keep)}loadError=null;clearFix();save();load();save();render()} // QA62-4: an import never brings back (or keeps) a fix undo
 $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];if(!file)return;const text=await file.text();let data;try{data=JSON.parse(text)}catch(err){toast('Not a valid backup file');return}
  if(data&&data.app==='drill-tracker'&&data.data&&data.data.days)data=data.data; // a Drive backup file also imports
@@ -1932,7 +2053,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 }
 
 load();render();wake();
-window.App={S:()=>S,A,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+window.App={S:()=>S,A,nextDayPlan,maintDedupe,maintIds,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
 </script>
 </body>
 </html>
