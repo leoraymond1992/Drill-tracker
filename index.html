@@ -305,6 +305,7 @@ function load(){
   if((S.v||1)>verIn){try{localStorage.setItem(KEY,JSON.stringify(S))}catch(e){storeWarn='⚠ Phone storage is full – the upgraded data is not saved yet (your old data is untouched). Export a backup now (Settings → Export backup).'}}
   // v6.3: oil change log – default when missing (in memory only; it is stored with the next save, so old data stays byte-identical on load)
   if(!S.maint||typeof S.maint!=='object'||Array.isArray(S.maint))S.maint={log:[],dismissed:null};else{if(!Array.isArray(S.maint.log))S.maint.log=[];if(!('dismissed' in S.maint))S.maint.dismissed=null}
+  try{tpFill()}catch(e){} // v6.6: travel + pre-op on quick-add days (in memory; written with the next save)
   maintIds(S.maint.log); // v6.4 (QA66-b): entries without an id get a stable one in memory only (written with the next save), so History ✕ works
  }catch(e){
   try{if(raw)localStorage.setItem('ffdt.v1.bak',raw)}catch(x){storeWarn=STORE_FULL}
@@ -322,7 +323,10 @@ function load(){
 // Ties keep this list order (least important first).
 const SAFETY_DROP=()=>[[FIX_KEY,FIX_KEY+'.meta'],[PRE6_KEY,PRE6_META],[BF_PREV,BF_META],[PREV_KEY,PREV_META],[PRE6_CUR,PRE6_CUR+'.meta'],[SAFE0_CUR,SAFE0_CUR+'.meta'],[IMP_CUR,IMP_CUR+'.meta'],[SAFE0,SAFE0_META]];
 function canonJ(o){if(Array.isArray(o))return '['+o.map(canonJ).join(',')+']';if(o&&typeof o==='object')return '{'+Object.keys(o).sort().map(k=>JSON.stringify(k)+':'+canonJ(o[k])).join(',')+'}';return JSON.stringify(o===undefined?null:o)}
-function shiftMap(src){try{const o=typeof src==='string'?JSON.parse(src):src;if(!o||typeof o!=='object'||!o.days||typeof o.days!=='object')return null;const m=new Map();
+function shiftMap(src){try{const o=typeof src==='string'?JSON.parse(src):JSON.parse(JSON.stringify(src));if(!o||typeof o!=='object'||!o.days||typeof o.days!=='object')return null;const m=new Map();
+ // v6.6 QA70-1: a copy is read the way load() reads it – the same travel/pre-op fill and oil-change ids – so a copy that differs only by those still counts as covered
+ try{tpFillOn(o)}catch(e){}try{if(o.maint&&typeof o.maint==='object'&&Array.isArray(o.maint.log))maintIds(o.maint.log)}catch(e){}
+
  [...Object.values(o.days),...Object.values(o.crossDays&&typeof o.crossDays==='object'?o.crossDays:{})].forEach(d=>{if(!d||typeof d!=='object')return;const k=[d.date||'',d.shift||'',String(d.driller||'').trim().toLowerCase()].join('|');if(!m.has(k))m.set(k,new Set());m.get(k).add(canonJ(d))});m.set_=canonJ(o.settings||null);m.run_=canonJ(o.run||null);m.maint_=new Set((o.maint&&Array.isArray(o.maint.log)?o.maint.log:[]).map(canonJ));return m}catch(e){return null}}
 // QA r2 nit 1: a copy is "covered" only if its shifts AND its settings AND its live run are also in ffdt.v1 or another kept copy
 function shiftsCovered(m,others){if(!m)return false;for(const[k,set]of m)for(const c of set)if(!others.some(o=>o&&o.has(k)&&o.get(k).has(c)))return false;
@@ -333,7 +337,7 @@ function metaAt(k){try{const m=JSON.parse(localStorage.getItem(k)||'null');retur
 function pickDrop(kept,v1m){const fx=kept.find(c=>c.ks[0]===FIX_KEY);if(fx)return fx; // QA62-7: the fix undo is the least important – always first
  for(const c of kept){if(shiftsCovered(c.map,[v1m,...kept.filter(x=>x!==c).map(x=>x.map)]))return c}
  return kept.slice().sort((a,b)=>a.at-b.at||a.pri-b.pri)[0]}
-function save(){if(S&&S._corrupt){if(loadError)toast(loadError);return false}const txt=JSON.stringify(S);
+function save(){if(S&&S._corrupt){if(loadError)toast(loadError);return false}try{tpFill()}catch(e){}const txt=JSON.stringify(S);
  try{localStorage.setItem(KEY,txt);return true}catch(e){
   if(!isQuota(e)){toast('⚠ Could not save: '+e.message);return false}
   const held=[];let ok=false;const v1m=shiftMap(txt);
@@ -525,6 +529,37 @@ function schedType(ds){const h=hitchInfo(ds);return h?h.type:((S.settings.hitchS
 // A night shift that crosses midnight belongs to the evening it started: before the cutoff (default 08:00) it is still yesterday's night.
 function workDate(now){now=now||new Date(Date.now());let date=todayStr(now);if(now.getHours()<cutoffHour()){const y=addDays(date,-1);if(schedType(y)==='Night')date=y}return date}
 const daysIn=(a,b)=>allDays().filter(d=>d.date>=a&&d.date<=b).sort((x,y)=>(x.date).localeCompare(y.date)||(x.created||0)-(y.created||0));
+// v6.6: quick-add days get the daily travel + pre-op from Settings (default 1 h + 0.5 h), like a timed shift.
+// Leo (via Drill Mentor): "Yes, quick-add days should get 1 hr travel and 0.5 hr pre-op." Done once per day – bfTP marks it
+// (1 = added, 0 = left alone: it had its own travel/pre-op, or another of your shifts that work date already carries them).
+// Covered days are left as they are (you didn't travel), cross-shift rows never get it. Running it again changes nothing.
+// QA70-2: a quick-add with Total hours typed already has its hours – it gets no fill (and a fill an earlier v6.6 build put on it is taken off).
+// QA70-6: a filled day that is now covered (someone else ran it) loses only the auto-filled travel/pre-op; nothing else about covered days changes.
+// tpFillOn(o) works on any saved state (the live data or a safety copy, so copies compare the way they load – QA70-1).
+const bfTyped=d=>d.bfHours!=null&&+d.bfHours>0;
+const tpIsObj=m=>!!m&&typeof m==='object'&&!Array.isArray(m);
+function tpFillOn(o){if(!o||typeof o!=='object'||o._corrupt||!o.days||typeof o.days!=='object')return 0;let n=0;const st=o.settings||{},val=(k)=>st[k]!=null?(+st[k]||0):DEF[k],tr=val('travel'),po=val('preop');
+ const all=Object.values(o.days).filter(d=>d&&typeof d==='object'),has=x=>(+x.travel||0)>0||(+x.preop||0)>0;
+ // QA72: the marker keeps the values actually filled: bfTP:{t,p} (t = travel, p = pre-op). A legacy bfTP:1 (v6.6 r1–r3) is read as
+ //  "filled with the current Settings" – the only info there is – and rewritten to {t,p} in memory (stored on the next save).
+ //  bfTP:0 = left alone. bfTP:{t,p,off:1} = the fill was taken off because the day is covered; back to him → those same values return.
+ // QA71/72: only values still equal to what was filled are ever taken off – his own numbers (travel 2, a deliberate 0, pre-op 0.75) are never touched.
+ //  covered: both still the fill → off (marker kept with off:1); otherwise all kept and the marker stays (never refilled).
+ //  back to him (off:1, nothing typed since): the stored values come back; if he typed his own numbers or Total hours meanwhile, his numbers stay.
+ //  Total hours typed: each value still equal to the fill → 0; the marker stays, so the day is never filled again.
+ const eq=(a,b)=>Math.abs((+a||0)-(+b||0))<1e-9;
+ all.forEach(d=>{if(d.bfTP===1)d.bfTP={t:tr,p:po};const m=d.bfTP;if(!tpIsObj(m))return;const t=+m.t||0,p=+m.p||0;
+  if(m.off){if(d.covered)return;const own=has(d)||bfTyped(d)||all.some(x=>x!==d&&x.date===d.date&&!x.crossShift&&!x.covered&&has(x));
+   if(own)d.bfTP={t,p};else{d.travel=t;d.preop=p;d.bfTP={t,p};n++}return}
+  if(d.covered){if(eq(d.travel,t)&&eq(d.preop,p)){d.travel=0;d.preop=0;d.bfTP={t,p,off:1}}}
+  else if(bfTyped(d)){if(t&&eq(d.travel,t))d.travel=0;if(p&&eq(d.preop,p))d.preop=0}});
+ all.filter(d=>d.backfilled===true&&d.bfV===2&&!d.crossShift&&!d.covered&&!bfTyped(d)&&!('bfTP' in d)).sort((a,b)=>(a.created||0)-(b.created||0)||String(a.id).localeCompare(String(b.id))).forEach(d=>{
+  if(has(d)||all.some(x=>x!==d&&x.date===d.date&&!x.crossShift&&has(x))){d.bfTP=0;return}
+  d.travel=tr;d.preop=po;d.bfTP={t:tr,p:po};n++});return n}
+// QA70-5: days filled this session (after the update, or by importing an older backup) – Totals shows a one-line note, the import toast says it too
+let tpAdded=0;
+function tpFill(){if(!S||S._corrupt)return 0;const n=tpFillOn(S);tpAdded+=n;return n}
+const tpTake=()=>{const n=tpAdded;tpAdded=0;return n};
 function agg(days){
  const o={days:days.length,reamAdd:0,coredM:0,dir:0,cred:0,dirM:0,counted:0,runs:0,dirRuns:0,blocks:0,B:{},total:0,rodPulls:0,rods:0,tests:0,bitCh:0,cross:{m:0,dir:0,cred:0,dirM:0,counted:0,rp:0},cons:{}};
  BUCKETS.forEach(b=>o.B[b]=0);
@@ -739,6 +774,7 @@ function vShift(){
   ${inp('dirMode','🧭 Directional mode – new timed runs are directional (don\'t count)','check')}
   ${inp('dir','Directional hours (3 m credit per hr)','num')}
  </div>`+maintCard()+`
+ ${String(c.driller||'').trim()&&isMyName(c.driller)?`<div class="warn" id="crossMeWarn">⚠ ${esc(ITS_ME)} The cross-shift card (under More) has your name as their driller – it's the other crew's shift (stats only).</div>`:''}
  <button class="btn ghost" data-a="shiftMore" id="shiftMoreBtn">${more?'▲ Less':'⋯ More'} – job, drill, bit, travel, extra metres, cross shift, notes</button>
  <div id="shiftMore"${more?'':' hidden'}>
  <div class="card"><h2>Shift details</h2>
@@ -974,7 +1010,7 @@ function aggCard(title,days,nav){
 function vTotals(){
  const p=periodAt(perOff),pd=daysIn(p.start,p.end);
  const nav=`<div class="row noprint" style="margin-bottom:8px"><button class="btn ghost sm" data-a="per" data-v="-1">◀</button><div class="c" style="flex:3;align-self:center"><b>${nice(p.start)} – ${nice(p.end)}</b></div><button class="btn ghost sm" data-a="per" data-v="1">▶</button></div>`;
- let h=`<button class="btn blu" data-a="tab" data-v="stats" id="statsOpen">👥 Me vs cross shift stats</button>`+aggCard('Pay period',pd,nav);
+ let h=(tpAdded?`<div class="warn" id="tpNote">ℹ Travel ${fm(+S.settings.travel||0)} h + pre-op ${fm(+S.settings.preop||0)} h were added to ${plural(tpAdded,'quick-add day')} (days with Total hours typed are left alone). If you didn't travel one of those days, set it to 0 in All shifts – it stays 0. <button class="btn ghost sm" data-a="tpNoteOk" id="tpNoteOk">OK</button></div>`:'')+`<button class="btn blu" data-a="tab" data-v="stats" id="statsOpen">👥 Me vs cross shift stats</button>`+aggCard('Pay period',pd,nav);
  const hi=hitchInfo(workDate());
  if(!hi)h+=`<div class="card"><h2>Hitch (${+S.settings.hitchOn||28} on / ${S.settings.hitchOff??14} off)</h2><p class="mut">Set your hitch start date to track day X of 28.</p><div class="g2">${inp('hitchStart','First day of a hitch','date',{s:true})}${inp('hitchShift','Days or Nights this hitch','select',{s:true,opts:[['Night','Nights'],['Day','Days']]})}</div>
   ${inp('shiftCutoff','Night shift counts as yesterday until','select',{s:true,opts:Array.from({length:24},(_,h)=>[h,String(h).padStart(2,'0')+':00'])})}</div>`;
@@ -1192,7 +1228,7 @@ const A={
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
- gridDay(el){return gridDay(el.dataset.v)}, startDay(){return startDay()},endDay(){return endDay()},shiftMore(){shiftMore=!shiftMore;render()},crossEdit(el){return crossEdit(el.dataset.v)},
+ gridDay(el){return gridDay(el.dataset.v)},tpNoteOk(){if(save()===true)tpAdded=0;render()}, /* QA71-2/QA72-2: OK saves once, so the fill a load made in memory is stored and the note doesn't come back next launch; if the save fails (storage full) the note stays */ startDay(){return startDay()},endDay(){return endDay()},shiftMore(){shiftMore=!shiftMore;render()},crossEdit(el){return crossEdit(el.dataset.v)},
  maintOpen(){return maintOpen()},maintDismiss(){const M=maintEnsure();M.dismissed=workDate();save();render();toast('Oil change reminder hidden for today')},
  maintHist(){maintHistOpen=!maintHistOpen;render()},maintF(el){maintFilter=el.dataset.v||'all';maintHistOpen=true;render()},maintDel(el){return maintDel(el.dataset.v)},
  makeCur(el){if(S.cur!==el.dataset.v)clearFix();S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
@@ -1674,7 +1710,12 @@ let bfRows=[],bfStage='edit';
 // Rows are Leo's own shifts or cross-shift shifts (another driller). Whose shift it is comes from the driller name vs settings.myName.
 // Leo's rows become normal days in S.days. Cross-shift rows go to S.crossDays: never in his totals, pay period, report, wrap-up or Drive counts – only in the stats screen.
 const myName=()=>String(S.settings.myName||'').trim()||'Leo';
-const isMyName=n=>{n=String(n||'').trim().toLowerCase();return !n||n===myName().toLowerCase()};
+// v6.5 QA68-5 / v6.6: names are compared trimmed, with spaces squashed, case- and accent-blind. Your name = Settings "My name" or "Driller",
+// the full name or the first name alone ("Leo" = "Leo Cote"). v6.6 QA69-2: ONE rule for Stats, DAYS, Add past shifts and the cross-shift forms.
+const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+function isMeLoose(n){const k=nameKey(n);if(!k)return false;return [S.settings.myName,S.settings.driller,myName()].map(nameKey).filter(Boolean).some(m=>k===m||k===m.split(' ')[0])}
+const isMyName=n=>!String(n||'').trim()||isMeLoose(n);
+const ITS_ME="That's you – log it as your shift instead.";
 const bfIsMe=r=>isMyName(r&&r.driller);
 const crossDayList=()=>Object.values(S.crossDays||{}).filter(d=>d&&typeof d==='object');
 // v6.1: Counted metres (regular metres that count) – prefilled with To − From until he edits it; typed directly when From/To are blank.
@@ -1705,6 +1746,10 @@ function bfCheck(row,i,rows){const errs=[],warns=[],fr=num(row.from),to=num(row.
   const dup=bfDupes(row);if(dup.length)warns.push(`You already have ${who} ${row.shift} shift on ${nice(row.date)} – you'll be asked what to do`);
   if(!me){const host=allDays().find(d=>d.date===row.date&&crossLabel(d).startsWith(row.shift)&&d.cross&&(crossCalc(d.cross).counted||d.cross.from!=null));if(host)warns.push(`Cross-shift metres are already typed on your ${nice(row.date)} shift – stats will use this row instead of those`)}
   (rows||[]).forEach((o,j)=>{if(j<i&&bfRowKey(o)===bfRowKey(row))warns.push(`Same date, shift and driller as row ${j+1}`)});
+  // v6.6 QA70-3: one shift of yours per date – the same rule (and words) as the DAYS screen. The same shift keeps its "asked what to do" flow.
+  if(me&&!row._x){const e=allDays().find(d=>d.date===row.date&&(d.shift==='Day'?'Day':'Night')!==(row.shift==='Day'?'Day':'Night'));
+   if(e)errs.push(`You already have a shift on ${nice(row.date)} (${gridDayTxt(e)}) – change that one instead of adding a second`);
+   else{const j=(rows||[]).findIndex((o,k)=>k<i&&o.date===row.date&&bfIsMe(o)&&o.shift!==row.shift);if(j>=0)errs.push(`Row ${j+1} already adds your shift on ${nice(row.date)} – one shift of yours per date`)}}
   if(fr!=null&&to!=null&&to>fr){
    if(row.countedEdited&&m!=null&&Math.abs(m-(to-fr))>0.05)warns.push(`Counted ${fm(m)} m (changed) – To − From is ${fm(r2(to-fr))} m`);
    // overlap check per driller / shift: only against the same driller's same shift on that date
@@ -1824,15 +1869,17 @@ async function crossForm(title,row,o={}){const fstr=v=>v==null?'':String(v);let 
   const r=Object.assign({},row,{driller:String(v.driller||'').trim(),from:fstr(v.from),to:fstr(v.to),counted:fstr(v.counted),dirH:fstr(v.dirH),helpers:splitHelpers(v.helpers)});
   if(o.edit){r.date=String(v.date||'');r.shift=v.shift==='Day'?'Day':'Night'}
   r.countedEdited=r.counted!=='';
-  const c=bfCheck(r,0,[r]);bad='';
-  if(!r.driller)bad='Enter their driller';else if(isMyName(r.driller))bad=`That's your name – this is the other crew's shift`;
+  const c=bfCheck(Object.assign({},r,{_x:1}),0,[r]);bad='';
+  // v6.6 QA69: a cross row never gets your name (or "Leo" alone) – an old row that already has it can still be edited if the name is left as it is
+  if(!r.driller)bad='Enter their driller';else if(isMyName(r.driller)&&!(o.origDriller!=null&&nameKey(r.driller)===nameKey(o.origDriller)))bad=ITS_ME;
   else if(c.errs.length)bad=c.errs[0];
   else{const dup=crossDupe(r.date,r.shift,o.edit);if(dup)bad=`${shiftWord(r.shift)} shift on ${nice(r.date)} is already saved (${dup.driller||'?'}, ${fm(mineCalc(dup).counted)} m)`}
   row=r;if(!bad)return r}}
 function crossNames(r){const dn=r.driller;if(dn&&!isMyName(dn)&&!(S.settings.drillerNames||[]).some(x=>x.toLowerCase()===dn.toLowerCase()))S.settings.drillerNames=[dn,...(S.settings.drillerNames||[])].slice(0,20)}
 async function crossEdit(id){const old=(S.crossDays||{})[id];if(!old)return;
- const r=await crossForm(`Edit ${old.driller||'cross shift'} · ${nice(old.date)}`,crossRowOf(old),{edit:id,ok:'✔ Save changes',msg:'<div id="crossEditInfo">Cross shift – stats only, never in your totals.</div>'});
- if(!r||r==='skip')return;const nd=bfDay(r);nd.id=old.id;nd.created=old.created||nd.created;
+ const r=await crossForm(`Edit ${old.driller||'cross shift'} · ${nice(old.date)}`,crossRowOf(old),{edit:id,origDriller:old.driller,ok:'✔ Save changes',msg:'<div id="crossEditInfo">Cross shift – stats only, never in your totals.</div>'});
+ if(!r||r==='skip')return;const nd=bfDay(r);nd.driller=r.driller;nd.crossShift=true;nd.id=old.id; // always a cross row (an old row that has your name stays one)
+ nd.created=old.created||nd.created;
  S.crossDays[id]=nd;crossNames(r);save();render();toastBig('✔ Cross shift updated');return nd}
 async function startDay(){buzz();const cur=D();
  if(S.run){toast('Finish or cancel the running run first (END SHIFT stops it)',true);return}
@@ -1851,7 +1898,7 @@ async function startDay(){buzz();const cur=D();
    helpers:prev?crossHelpers(prev):splitHelpers(P.last&&P.last.cross&&P.last.cross.helper),drillType:P.drillType,drillNumber:P.drillNumber};
   const r=await crossForm(`Step 1 of 2 · ${shiftWord(P.cShift)} shift ${mDay(P.cDate)}`,row,{skip:true,ok:'✔ Save → Step 2',msg:`<div id="crossStepInfo">What did the ${esc(shiftWord(P.cShift).toLowerCase())} shift drill before your ${esc(shiftWord(P.shift).toLowerCase())} shift? Stats only – never in your totals, pay or report.</div>`});
   if(!r)return;
-  if(r!=='skip'){const nd=bfDay(r);S.crossDays[nd.id]=nd;crossNames(r);save();const t=num(r.to);if(t!=null){startD=t;src=`${r.driller}'s To depth`}}}
+  if(r!=='skip'){const nd=bfDay(r);nd.crossShift=true;S.crossDays[nd.id]=nd;crossNames(r);save();const t=num(r.to);if(t!=null){startD=t;src=`${r.driller}'s To depth`}}}
  // Step 2: your new shift
  ex=myDupe(P.date,P.shift);if(ex){toast(`You already have a ${shiftWord(P.shift)} shift on ${nice(P.date)}`,true);return openMine(ex)}
  const helpers=[P.helper,P.helper2].filter(Boolean).join(', ');
@@ -1883,10 +1930,6 @@ async function endDay(){buzz();const d=D();if(!d){toast('No shift open');return}
  edit sheet writes the same shapes as the quick-add (bfDay, bfV:2) and the Shift tab's "covered" tick. */
 const GRID_MAX_M=300; // more than any one shift can drill – a typo guard
 const shType=d=>d&&d.shift==='Day'?'Day':'Night';
-// v6.5 QA68-5: names are compared trimmed, with spaces squashed, case- and accent-blind. Your name = Settings "My name" or "Driller",
-// the full name or the first name alone ("Leo" = "Leo Cote"). Used by the Days screen (stats keep their own rule, unchanged).
-const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
-function isMeLoose(n){const k=nameKey(n);if(!k)return false;return [S.settings.myName,S.settings.driller,myName()].map(nameKey).filter(Boolean).some(m=>k===m||k===m.split(' ')[0])}
 const gridDates=()=>{const s=new Set();allDays().forEach(d=>s.add(d.date));crossDayList().forEach(d=>s.add(d.date));return s};
 function gridRange(){const wd=workDate(),h=hitchInfo(wd);
  if(!h)return{from:addDays(wd,-27),to:wd,label:'Last 4 weeks'};
@@ -1904,8 +1947,8 @@ const isOldQuick=d=>!!d&&d.backfilled===true&&d.bfV!==2&&!(d.runs||[]).length&&!
 // everything logged for one date + Days/Nights, from the same sources (and the same host rule) as statsData
 function gridSlot(ds,sh){const items=[];
  allDays().filter(d=>d.date===ds&&shType(d)===sh).forEach(d=>items.push({kind:'day',d,driller:String(d.driller||'').trim()||myName(),m:dayCalc(d).mine.counted,open:isOpenDay(d),quick:isQuickDay(d)}));
- const cr=crossDayList().filter(d=>d.date===ds&&shType(d)===sh);cr.forEach(d=>items.push({kind:'cross',d,driller:String(d.driller||'').trim(),m:dayCalc(d).mine.counted}));
- if(!cr.length)allDays().filter(d=>d.date===ds&&crossLabel(d).startsWith(sh)).forEach(d=>{const c=d.cross||{},cc=crossCalc(c);if(!(cc.counted||cc.drill||c.from!=null))return;items.push({kind:'host',d,driller:String(c.driller||'').trim()||'Cross shift',m:cc.counted})});
+ const cr=crossDayList().filter(d=>d.date===ds&&shType(d)===sh);cr.forEach(d=>items.push({kind:'cross',d,driller:String(d.driller||'').trim(),m:dayCalc(d).mine.counted,odd:isMyName(d.driller)}));
+ if(!cr.length)allDays().filter(d=>d.date===ds&&crossLabel(d).startsWith(sh)).forEach(d=>{const c=d.cross||{},cc=crossCalc(c);if(!(cc.counted||cc.drill||c.from!=null))return;items.push({kind:'host',d,driller:String(c.driller||'').trim()||'Cross shift',m:cc.counted,odd:!!String(c.driller||'').trim()&&isMyName(c.driller)})});
  return items}
 function gridRow(ds,today){const me=myTypeOn(ds),h=hitchInfo(ds),off=!!h&&!h.on;
  // QA68-8b: on your day off an empty column (yours or the other crew's) is "off", never "missing"
@@ -1915,7 +1958,7 @@ function gridRow(ds,today){const me=myTypeOn(ds),h=hitchInfo(ds),off=!!h&&!h.on;
 const gridRowHtml=r=>`<button class="dg dgr${r.future?' fut':''}" data-a="gridDay" data-v="${r.ds}" id="gr_${r.ds}"><div class="gd"><b>${esc(DOW[parseD(r.ds).getDay()])}</b><br>${esc(mDay(r.ds))}</div>${gridCellHtml(r.c.Day,'gc_'+r.ds+'_Day')}${gridCellHtml(r.c.Night,'gc_'+r.ds+'_Night')}<div class="gt" id="gt_${r.ds}">${r.c.Day.items.length||r.c.Night.items.length?fm(r.total)+' m':''}</div></button>`;
 function gridCellHtml(x,id){const names=[...new Set(x.items.map(i=>i.driller))].join(' + ');
  const st=x.st==='ok'?`<span class="grn">✔</span>`:x.st==='open'?`<span class="amb">● open</span>`:x.st==='missing'?`<span class="red">✖ missing</span>`:x.st==='off'?`<span class="mut">off</span>`:`<span class="mut">—</span>`;
- return `<div class="gc${x.mine?' me':''}" id="${id}"><div class="gn">${st} ${esc(names)}</div>${x.items.length?`<div class="gm">${fm(x.m)} m</div>`:''}${x.items.length>1?`<div class="mut sm">${x.items.length} entries</div>`:''}</div>`}
+ return `<div class="gc${x.mine?' me':''}" id="${id}"><div class="gn">${st} ${esc(names)}</div>${x.items.length?`<div class="gm">${fm(x.m)} m</div>`:''}${x.items.length>1?`<div class="mut sm">${x.items.length} entries</div>`:''}${x.items.some(i=>i.odd)?`<div class="amb sm">⚠ cross row – not your pay</div>`:''}</div>`}
 function vGrid(){const rg=gridRange(),today=workDate(),rows=[];for(let ds=rg.to;ds>=rg.from;ds=addDays(ds,-1))rows.push(gridRow(ds,today));
  // today and the past first (newest at the top, no scrolling past empty days); the rest of the hitch below, greyed, soonest first
  const past=rows.filter(r=>!r.future),fut=rows.filter(r=>r.future).reverse();
@@ -1934,7 +1977,7 @@ function gridNewRow(ds,sh,drl,m,base){const last=lastDay();
 function gridFill(d,src){const l=lastDay(),pick=k=>(src&&src[k])||(l&&l[k])||'';d.job=pick('job');d.hole=pick('hole');d.size=pick('size')||d.size;return d} // job/hole/size: the entry's own, else the last shift's
 // counted metres on a quick-add / cross row, stored the way bfDay stores them (a typed number only when it differs from To − From)
 function gridSetM(d,m){const mi=d.mine||(d.mine={});const auto=mi.from!=null&&mi.to!=null&&mi.to>mi.from?r2(mi.to-mi.from):null;mi.m=auto!=null&&Math.abs(m-auto)<1e-9?null:m}
-const gridDayTxt=d=>`${shType(d)} · ${String(d.driller||'').trim()||myName()} ${fm(dayCalc(d).mine.counted)} m`;
+const gridDayTxt=d=>d.covered?`${shType(d)} · covered by ${String(d.driller||'').trim()||'someone else'}, ${fm(dayCalc(d).mine.counted)} m`:`${shType(d)} · ${String(d.driller||'').trim()||myName()} ${fm(dayCalc(d).mine.counted)} m`; // QA71-3
 async function gridDay(ds){buzz();if(S&&S._corrupt){toast(loadError||'Your data could not be read – nothing can be changed',true);return}
  const today=workDate();if(ds>today){toast(`${nice(ds)} hasn't happened yet`);return}
  const me=myTypeOn(ds),plan={},fields=[],info=[];let openId=null;
@@ -1950,6 +1993,7 @@ async function gridDay(ds){buzz();if(S&&S._corrupt){toast(loadError||'Your data 
   const mc=x?(x.kind==='host'?crossCalc(x.d.cross||{}):mineCalc(x.d)):null,cred=mc?mc.cred:0;
   const dv=x?x.driller:(sh===me?myName():(crossDayList().filter(d=>shType(d)===sh&&d.date<=ds).sort((a,b)=>b.date.localeCompare(a.date))[0]||{}).driller||'');
   plan[sh].dv=dv;plan[sh].mv=mc?mc.drill:null;fields.push({k:p+'_drl',l:`${L} – driller`,t:'text',v:dv},{k:p+'_m',l:`${L} – metres${cred?` (+ ${fm(cred)} m directional credit)`:''}`,t:'num',v:mc?mc.drill:''});
+  if(x&&x.odd)info.push(`<div class="warn sm" id="godd_${sh}">⚠ ${esc(L)}: this cross-shift row has your name (${esc(x.driller)}). It stays stats only – not in your pay. Change the name to the driller who ran it${sh===me&&x.kind==='cross'?`, or type your full name (${esc(myName())}) to count it as your shift`:''}.</div>`);
   if(x&&x.kind==='host')info.push(`<div class="mut sm" id="ghost_${sh}">${esc(L)}: typed on your ${esc(nice(x.d.date))} shift. Saving a change makes it a cross-shift row (stats use the row; your report keeps what you typed).</div>`)}
  let bad='',vals={};
  for(;;){fields.forEach(f=>{if(f.k in vals)f.v=vals[f.k]});
@@ -1964,16 +2008,19 @@ async function gridDay(ds){buzz();if(S&&S._corrupt){toast(loadError||'Your data 
    if(m==null||!isFinite(m)){bad=`${sh}: enter the metres (0 if nothing was drilled)`;break}
    if(m<0){bad=`${sh}: metres can't be negative`;break}
    if(m>GRID_MAX_M){bad=`${sh}: ${fm(m)} m is too many for one shift (max ${GRID_MAX_M})`;break}
-   const meName=isMeLoose(drl);
+   let meName=isMeLoose(drl);const same=nameKey(drl)===nameKey(P.dv);
    // QA68-4/5: nothing typed differs from what is there (same name by the loose rule, same metres) → no change, nothing written
-   if(P.mode==='edit'&&Math.abs(m-(+P.mv||0))<1e-9&&(nameKey(drl)===nameKey(P.dv)||(meName&&isMeLoose(P.dv))))continue;
-   if(meName&&!P.mine&&!(x&&x.kind==='day')&&myOn.length){bad=`${sh}: that's your name – you already have a shift on ${nice(ds)} (${gridDayTxt(myOn[0])}); this column is the other crew's (stats only)`;break}
-   if(meName&&!P.mine&&!(x&&x.kind==='day')){bad=`${sh}: that's your name – this is the other crew's shift (stats only)`;break}
-   if(x&&x.kind==='host'&&meName){bad=`${sh}: that's your name – this is the other crew's shift`;break}
-   if((!x||x.kind==='cross')&&P.mine&&myOn.length){const e=myOn[0];bad=`${sh}: you already have a shift on ${nice(ds)} (${gridDayTxt(e)}) – change that one instead of adding a second`;break}
-   todo.push({sh,P,drl,m:r2(m),meName})}
+   if(P.mode==='edit'&&Math.abs(m-(+P.mv||0))<1e-9&&(same||(meName&&isMeLoose(P.dv)&&x.kind!=='cross')))continue; // a cross row "Leo" → "Leo Cote" is a real rename (QA69-1)
+   // v6.6 QA69-1: an old cross row that already has your name stays a cross row (stats only) while its name is left as it is
+   if(x&&x.kind==='cross'&&same&&meName)meName=false;
+   if(meName&&!(x&&x.kind==='day')&&(!P.mine||(x&&x.kind==='host'))){bad=`${sh}: ${ITS_ME}${myOn.length?` You already have a shift on ${nice(ds)} (${gridDayTxt(myOn[0])}).`:` (Your shift is the ${me==='Day'?'☀ Day':'🌙 Night'} column.)`}`;break}
+   if(P.mine&&myOn.length&&(!x||(x.kind==='cross'&&meName))){const e=myOn[0];bad=`${sh}: you already have a shift on ${nice(ds)} (${gridDayTxt(e)}) – change that one instead of adding a second`;break}
+   todo.push({sh,P,drl,m:r2(m),meName,conv:!!x&&x.kind==='cross'&&meName})}
   if(bad)continue;
   if(!todo.length){toast('Nothing changed');return}
+  // v6.6 QA69-1: a cross row only becomes your (paid) shift when you changed its name to yours – and you say so
+  const conv=todo.filter(t=>t.conv);
+  if(conv.length&&!await ask('Count this as YOUR shift (pay)?',[],{ok:'✔ Yes – my shift',cancel:'← No, go back',focus:false,msg:`<div id="gridConv">${conv.map(t=>`${esc(t.sh)}: ${esc(t.P.dv)} · ${fm(t.m)} m → ${esc(myName())}`).join('<br>')}<br>It moves out of the cross-shift stats into your totals and pay.</div>`}))continue;
   let n=0;
   todo.forEach(({sh,P,drl,m,meName})=>{const x=P.x;
    if(!x){ // a new entry: your column → your shift (covered if someone else ran it); the other column → a cross-shift row
@@ -1985,7 +2032,9 @@ async function gridDay(ds){buzz();if(S&&S._corrupt){toast(loadError||'Your data 
     gridSetM(d,m);if(JSON.stringify([d.driller,d.covered,d.mine])!==was)n++;return}
    if(x.kind==='cross'){const d=x.d;
     if(meName){ // QA68-1: your column, a cross row (e.g. a covered night saved as a cross row) → your quick-add shift built from ALL its fields
-     const nd=gridFill(bfDay(gridNewRow(ds,sh,myName(),m,(b=>{if(!b.drillType)delete b.drillType;if(!b.drillNumber)delete b.drillNumber;return b})(crossRowOf(d)))),d);S.days[nd.id]=nd;delete S.crossDays[d.id];n++;return}
+     const nd=gridFill(bfDay(gridNewRow(ds,sh,myName(),m,(b=>{if(!b.drillType)delete b.drillType;if(!b.drillNumber)delete b.drillNumber;return b})(crossRowOf(d)))),d);
+     ['dirFrom','dirTo','dirM'].forEach(k=>{if(d.mine&&d.mine[k]!=null)nd.mine[k]=d.mine[k]}); // v6.6 QA69-3: directional metres (info) kept too
+     S.days[nd.id]=nd;delete S.crossDays[d.id];n++;return}
     const was=JSON.stringify([d.driller,d.mine]);d.driller=drl;gridSetM(d,m);crossNames({driller:drl});if(JSON.stringify([d.driller,d.mine])!==was)n++;return}
    if(x.kind==='host'){const c=x.d.cross||{}; // QA68-4: the new row keeps the typed From/To, directional hours and helper
     const base={from:c.from==null?'':String(c.from),to:c.to==null?'':String(c.to),dirH:c.dir?String(c.dir):'',helpers:[c.helper].map(h=>String(h||'').trim()).filter(Boolean)};
@@ -2043,12 +2092,12 @@ function vStats(){const rg=statRange(),sd=statsData(rg);
  ${statF==='custom'?`<div class="g2" style="margin-top:8px"><label>From<input type="date" data-st="from" value="${esc(statCustom.from)}"></label><label>To<input type="date" data-st="to" value="${esc(statCustom.to)}"></label></div>`:''}
  <p class="mut sm" id="statRange">${esc(rg.label)}</p></div>
  ${box(`${sd.myName} (me)`,sd.me,'stMe')}${box('Cross shift (all other drillers)',sd.cross,'stCr')}
- ${sd.names.length?`<div class="card"><h2>Cross shift by driller</h2>${sd.names.map(x=>`<div class="kv"><span>${esc(x.name)} · ${plural(x.n,'shift')}</span><b>${fm(x.m)} m · avg ${fm(x.avg)}</b></div>`).join('')}</div>`:''}
+ ${sd.names.length?`<div class="card"><h2>Cross shift by driller</h2>${sd.names.map(x=>`<div class="kv"><span>${esc(x.name)} · ${plural(x.n,'shift')}${isMyName(x.name)?` <span class="amb" id="stOddName">⚠ your name – stats only, not in your pay</span>`:''}</span><b>${fm(x.m)} m · avg ${fm(x.avg)}</b></div>`).join('')}</div>`:''}
  <div class="card"><h2>By pay period</h2>${statGroupTable(sd.periods,'stPer')}</div>
  <div class="card"><h2>By hitch</h2>${statGroupTable(sd.hitches,'stHitch')}</div>
  <div class="card"><button class="btn" data-a="statPrint" data-v="1" id="statPrintBtn">🖨 Print preview</button><button class="btn blu" data-a="statShare" id="statShare">📤 Share / copy summary</button>
  <p class="mut sm">Same counted-metres math as the report. Cross-shift rows never count in your totals.${S.settings.showCrewInShare?'':' Helper names are left out of shared / printed stats.'}</p></div>
- ${cd.length?`<div class="card"><h2>Cross-shift rows</h2>${cd.map(d=>`<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift)} · ${esc(d.driller||'')}</b><span class="mut sm">${fm(mineCalc(d).counted)} m${trimNote(d.notes)?' · “'+esc(d.notes)+'”':''}</span></div><button class="btn ghost sm" data-a="crossEdit" data-v="${d.id}" aria-label="Edit">✎</button><button class="btn ghost sm" data-a="crossDel" data-v="${d.id}">🗑</button></div>`).join('')}</div>`:''}`}
+ ${cd.length?`<div class="card"><h2>Cross-shift rows</h2>${cd.map(d=>`<div class="li"><div class="x"><b>${nice(d.date)} ${esc(d.shift)} · ${esc(d.driller||'')}</b><span class="mut sm">${fm(mineCalc(d).counted)} m${trimNote(d.notes)?' · “'+esc(d.notes)+'”':''}</span>${isMyName(d.driller)?`<span class="amb sm" id="stOdd_${d.id}">⚠ Has your name – kept as a cross-shift row (stats only, not in your pay). ✎ to put the real driller's name.</span>`:''}</div><button class="btn ghost sm" data-a="crossEdit" data-v="${d.id}" aria-label="Edit">✎</button><button class="btn ghost sm" data-a="crossDel" data-v="${d.id}">🗑</button></div>`).join('')}</div>`:''}`}
 async function shareText(title,text){
  if(navigator.share){try{await navigator.share({title,text});toast('Shared ✔');return 'shared'}catch(e){if(e&&e.name==='AbortError')return 'cancelled'}}
  copyText(text);return 'copied'}
@@ -2165,7 +2214,7 @@ $('#impfile').addEventListener('change',async e=>{const file=e.target.files[0];i
  if(!takeSafe0('import')){toast('⚠ Import cancelled – could not keep a safety copy of your data (phone storage full?). Nothing changed. Export a backup first.',true);return} // QA9
  {let cur=null;try{cur=localStorage.getItem(KEY)}catch(e){}if(cur==null&&S&&!S._corrupt&&Object.keys(S.days||{}).length)cur=JSON.stringify(S);
   if(cur!=null&&safe0Valid(cur)&&!storeSafe(IMP_CUR,cur,IMP_CUR+'.meta',Object.assign(curMeta(cur),{mode:v.mode}))){toast('⚠ Import cancelled – could not keep a copy of your current data (phone storage full?). Nothing changed. Export a backup first.',true);render();return}}
- applyImport(data,v.mode);toastBig('✔ Imported')});
+ applyImport(data,v.mode);const tn=tpTake();toastBig(tn?`✔ Imported · travel + pre-op added to ${plural(tn,'quick-add day')} – set a day to 0 in All shifts if he didn't travel`:'✔ Imported')});
 setInterval(()=>{if(!$('#modal').hidden)return;const act=document.activeElement;const typing=act&&/INPUT|TEXTAREA|SELECT/.test(act.tagName);
  if((tab==='timer'||tab==='log')&&(S.run||runningActs().length)&&!typing)render();else renderHeader()},1000);
 let wl=null;async function wake(){try{if(S.settings.wake&&'wakeLock' in navigator&&document.visibilityState==='visible'){wl=await navigator.wakeLock.request('screen')}else if(!S.settings.wake&&wl){await wl.release();wl=null}}catch(e){}}
@@ -2180,7 +2229,7 @@ if('serviceWorker' in navigator&&/^https?:/.test(location.protocol)){
 }
 
 load();render();wake();
-window.App={S:()=>S,A,nextDayPlan,maintDedupe,maintIds,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
+window.App={S:()=>S,A,tpFill,shiftMap,shiftsCovered,isMyName,nextDayPlan,maintDedupe,maintIds,exportData,weekStart,maintWeek,maintDone,bfCalc,bfDay,save:()=>save(),takeSafe0,waterCard,extraRows,statsData,statsText,statRange,setStat:(f,a,b)=>{statF=f;if(a!=null)statCustom.from=a;if(b!=null)statCustom.to=b},bitAlerts,bitAvg,bitTotalM,liveRunM,bfMetres,bfIsMe,helperOut,drillLabel,myName:()=>myName(),bfStage:()=>bfStage,hitchText,schedType,rotaAnchorFor,paceCalc,rcCalc,wrapData,bfCheck,bf:()=>bfRows,setBf:r=>{bfRows=r},crewStr,dataCounts,driveConfigured,drv,dayCalc,agg,stats,reportText,buildComments,periodAt,hitchInfo,workDate,cutoffHour,runStats,mineCalc,crossCalc,mineOverlap,actH,actElapsedMs,isActPaused,pausedMs,beginActPause,endActPause,pauseRun,resumeRun,loadError:()=>loadError,render,setTab:t=>{tab=t;viewDay=null;render()}};
 </script>
 </body>
 </html>
