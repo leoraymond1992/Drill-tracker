@@ -121,6 +121,13 @@ input.bad{border-color:var(--red,#e33)!important;outline:2px solid #e33}.rcres.o
  .report{border-radius:0;padding:0}
  .sprint{padding:0;border-radius:0}
 }
+/* v6.5 Days grid */
+.dg{display:grid;grid-template-columns:50px minmax(0,1fr) minmax(0,1fr) 46px;gap:4px;width:100%;align-items:center;text-align:left}
+.dgh{font-size:13px;color:var(--mut);padding:0 6px 6px;font-weight:700}
+.dgr{min-height:64px;background:var(--card2);border:2px solid var(--line);border-radius:10px;color:var(--tx);padding:6px;margin:0 0 6px;font:inherit;cursor:pointer}
+.dgr.fut{opacity:.45}.gd{font-size:13px;line-height:1.3}.gc{min-width:0;padding:2px 4px;border-radius:6px;overflow-wrap:anywhere}.gc.me{background:rgba(255,179,0,.10)}
+.gn{font-size:14px;line-height:1.25}.gm{font-size:20px;font-weight:800}.gt{font-size:15px;font-weight:800;text-align:right}
+.gro{background:var(--card2);border:2px solid var(--line);border-radius:10px;padding:10px;margin:0 0 10px;font-size:16px}
 </style>
 </head>
 <body>
@@ -491,7 +498,8 @@ function bitLife(){
 }
 function curBit(kind){return bitLife().filter(x=>x.kind===kind&&x.current)[0]||null}
 function periodOf(ds){const d=parseD(ds),y=d.getFullYear(),m=d.getMonth();return d.getDate()<=15?{start:todayStr(new Date(y,m,1)),end:todayStr(new Date(y,m,15))}:{start:todayStr(new Date(y,m,16)),end:todayStr(new Date(y,m+1,0))}}
-function periodAt(off){let p=periodOf(todayStr());for(let i=0;i<Math.abs(off);i++)p=off<0?periodOf(addDays(p.start,-1)):periodOf(addDays(p.end,1));return p}
+function periodAt(off){let p=periodOf(workDate()); // v6.5 QA68-3: the current pay period follows the work date (a night after midnight still belongs to its start date)
+ for(let i=0;i<Math.abs(off);i++)p=off<0?periodOf(addDays(p.start,-1)):periodOf(addDays(p.end,1));return p}
 /* ===== Rotation (v6) =====
  Base pattern: settings.hitchStart / hitchShift / hitchOn / hitchOff. Re-anchors: settings.rotaAnchors [{from,start,on,off,type}] apply from `from` forward,
  so earlier days keep their old pattern. Per-day overrides: rotaDayOv {date:'work'|'off'}, rotaTypeOv {date:'N'|'D'}.
@@ -653,8 +661,8 @@ async function maintDel(id){const M=maintEnsure(),e=M.log.find(x=>x&&String(x.id
 const TABS=[['shift','🗓','Shift'],['timer','⏱','Timer'],['log','🔧','Log'],['report','📋','Report'],['days','📚','Days'],['totals','Σ','Totals'],['sched','📅','Hitch']];
 function render(){
  if(!$('#modal').hidden)return;
- $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
- const V={shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
+ $('#nav').innerHTML=TABS.map(([k,i,l])=>`<button data-a="tab" data-v="${k}" class="${tab===k||(tab==='backfill'&&k==='days')||(tab==='grid'&&k==='shift')||(tab==='stats'&&k==='totals')?'on':''}"><span>${i}</span>${l}</button>`).join('');
+ const V={grid:vGrid,shift:vShift,timer:vTimer,log:vLog,report:vReport,days:vDays,totals:vTotals,settings:vSettings,sched:vSched,backfill:vBackfill,stats:vStats}[tab]||vShift;
  $('#main').innerHTML=(loadError?corruptBanner():'')+(storeWarn?`<div class="warn" id="storeWarn"><b>${esc(storeWarn)}</b><div class="row" style="margin-top:8px"><button class="btn" data-a="exportJSON">⬇ Export backup</button><button class="btn ghost" data-a="storeWarnOk" id="storeWarnOk">✔ Got it</button></div></div>`:'')+drivePendingBanner()+maintBanner()+V();
  renderHeader();
 }
@@ -705,17 +713,18 @@ function wrapHtml(d){const w=wrapData(d);
  <h3 style="color:var(--blu)">Pay hours</h3>${w.cats.map(([k,h])=>`<div class="kv"><span>${esc(k)}</span><b>${th(h)}</b></div>`).join('')}
  <div class="kv"><span><b>TOTAL HOURS</b></span><b class="amb" id="wrapTotal">${th(w.total)||0}</b></div>
  ${w.noFtAsk?`<div class="warn" id="wrapNoFt">⚠ Extra Total is unconfirmed – answer it on the Shift tab.</div>`:''}</div>`}
-function needDay(){return `<div class="card c" id="needDay"><h2>No shift open</h2><p class="mut">Tap START NEW DAY to begin. It fills in the date, crew, hole and depth for you.</p>${startDayBtn()}<button class="btn ghost" data-a="newShift" id="newShiftBtn">＋ Blank shift for today (no carry-over)</button></div>`}
+function needDay(){return `<div class="card c" id="needDay"><h2>No shift open</h2><p class="mut">Tap START NEW DAY to begin. It fills in the date, crew, hole and depth for you.</p>${startDayBtn()}${daysBtn()}<button class="btn ghost" data-a="newShift" id="newShiftBtn">＋ Blank shift for today (no carry-over)</button></div>`}
 /* v6.4 usability pass (Leo: "it should be very easy to use this app"): the big action sits at the top – END SHIFT while a shift is open,
  START NEW DAY when none is open or right after End shift. The everyday fields stay on screen; the rarely used ones (job, drill, bit,
  size, covered, travel / pre-op, extra metres, the cross-shift card, notes, blank shift) are under "More" – nothing was removed. */
 let shiftMore=false;
 const shiftOpen=d=>!!(d&&!d.endedAt);
 function startDayBtn(){return `<button class="btn huge grn" data-a="startDay" id="startDayBtn">▶ START NEW DAY</button>`}
+const daysBtn=()=>`<button class="btn huge blu" data-a="tab" data-v="grid" id="daysBtn" style="margin-top:10px">📅 DAYS – who drilled what</button>`; // v6.5
 function shiftTop(d){
  if(shiftOpen(d))return `<div class="card" id="shiftTop"><div class="kv"><span id="shiftTopTxt">${esc(nice(d.date))} · ${esc(d.shift==='Day'?'Days':'Nights')} · ${esc(d.hole||'No hole')}</span><b class="amb">${fm(dayDepth(d))||'—'} m</b></div>
- <button class="btn huge red" data-a="endDay" id="endDayBtn">🏁 END SHIFT</button></div>`;
- return `<div class="card" id="shiftTop">${d?`<p class="sm" id="shiftEndedTxt">✔ ${esc(nice(d.date))} ${esc(d.shift||'')} shift ended${d.endedAt?' at '+esc(hm(d.endedAt)):''} · ${fm(dayDepth(d))||'—'} m</p>`:''}${startDayBtn()}</div>`}
+ <button class="btn huge red" data-a="endDay" id="endDayBtn">🏁 END SHIFT</button>${daysBtn()}</div>`;
+ return `<div class="card" id="shiftTop">${d?`<p class="sm" id="shiftEndedTxt">✔ ${esc(nice(d.date))} ${esc(d.shift||'')} shift ended${d.endedAt?' at '+esc(hm(d.endedAt)):''} · ${fm(dayDepth(d))||'—'} m</p>`:''}${startDayBtn()}${daysBtn()}</div>`}
 function vShift(){
  const d=D();if(!d)return needDay()+maintCard()+recentCard();
  const c=d.cross||{},mc=mineCalc(d),more=shiftMore||!!mc.noFtAsk; // an unanswered Extra Total opens More so the question can be seen
@@ -1183,7 +1192,7 @@ const A={
  print(){window.print()},
  openDay(el){viewDay=el.dataset.v;tab='days';window.scrollTo(0,0);render()},
  closeDay(){viewDay=null;render()},
- startDay(){return startDay()},endDay(){return endDay()},shiftMore(){shiftMore=!shiftMore;render()},crossEdit(el){return crossEdit(el.dataset.v)},
+ gridDay(el){return gridDay(el.dataset.v)}, startDay(){return startDay()},endDay(){return endDay()},shiftMore(){shiftMore=!shiftMore;render()},crossEdit(el){return crossEdit(el.dataset.v)},
  maintOpen(){return maintOpen()},maintDismiss(){const M=maintEnsure();M.dismissed=workDate();save();render();toast('Oil change reminder hidden for today')},
  maintHist(){maintHistOpen=!maintHistOpen;render()},maintF(el){maintFilter=el.dataset.v||'all';maintHistOpen=true;render()},maintDel(el){return maintDel(el.dataset.v)},
  makeCur(el){if(S.cur!==el.dataset.v)clearFix();S.cur=el.dataset.v;save();viewDay=null;tab='shift';render();toast('Shift opened for editing')},
@@ -1865,6 +1874,124 @@ async function endDay(){buzz();const d=D();if(!d){toast('No shift open');return}
  const was=d.endedAt;await A.endShift();
  if(!d.endedAt||d.endedAt===was)return;
  if(await ask('✔ Shift saved',[],{ok:'📋 Open report',cancel:'Not now',msg:'<div id="endReportMsg">Want to look at or share the report?</div>'})){tab='report';window.scrollTo(0,0);render()}}
+
+/* ===== v6.5: DAYS – who drilled what, side by side =====
+ Leo: "a button so when I press it it shows each day of what each driller drilled side by side so it's easy to see what days are
+ completed and which ones are not, also a spot where I can easily pick a day and alter what each driller got".
+ One row per date of the current hitch (rotation), newest first; Day and Night columns; daily total. Metres are the shared calculator's
+ (dayCalc(d).mine.counted – the same number Totals and Stats use). Nothing new is stored: the grid reads S.days / S.crossDays, and the
+ edit sheet writes the same shapes as the quick-add (bfDay, bfV:2) and the Shift tab's "covered" tick. */
+const GRID_MAX_M=300; // more than any one shift can drill – a typo guard
+const shType=d=>d&&d.shift==='Day'?'Day':'Night';
+// v6.5 QA68-5: names are compared trimmed, with spaces squashed, case- and accent-blind. Your name = Settings "My name" or "Driller",
+// the full name or the first name alone ("Leo" = "Leo Cote"). Used by the Days screen (stats keep their own rule, unchanged).
+const nameKey=n=>String(n||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim().toLowerCase();
+function isMeLoose(n){const k=nameKey(n);if(!k)return false;return [S.settings.myName,S.settings.driller,myName()].map(nameKey).filter(Boolean).some(m=>k===m||k===m.split(' ')[0])}
+const gridDates=()=>{const s=new Set();allDays().forEach(d=>s.add(d.date));crossDayList().forEach(d=>s.add(d.date));return s};
+function gridRange(){const wd=workDate(),h=hitchInfo(wd);
+ if(!h)return{from:addDays(wd,-27),to:wd,label:'Last 4 weeks'};
+ // QA68-8a: days after the hitch end that are worked (extra days, a day off changed to work) or have an entry stay on the grid –
+ // looked for through the days off up to the next hitch (or today, whichever is later)
+ let to=h.end;const has=gridDates(),stop=h.back&&h.back>wd?addDays(h.back,-1):wd;
+ for(let ds=addDays(h.end,1);ds<=stop;ds=addDays(ds,1)){const k=hitchInfo(ds);if(k&&k.start!==h.start)break;if((k&&k.on)||has.has(ds))to=ds}
+ return{from:h.start,to,label:`Hitch ${nice(h.start)} – ${nice(h.end)}`}}
+// QA68-2: your column on a date = the shift you really logged that date (yours first, else a covered one); only an empty date follows the calendar
+function myTypeOn(ds){const on=allDays().filter(d=>d.date===ds),mine=on.find(d=>isMeLoose(d.driller||myName())&&!d.covered)||on[0];if(mine)return shType(mine);
+ const h=hitchInfo(ds);if(h)return h.type;return (S.settings.hitchShift||S.settings.shift)==='Day'?'Day':'Night'}
+const isOpenDay=d=>!!d&&((S.cur===d.id&&!d.endedAt)||(S.run&&S.run.dayId===d.id)||(d.acts||[]).some(a=>a&&!a.e&&a.hrs==null));
+const isQuickDay=d=>!!d&&d.backfilled===true&&d.bfV===2&&!(d.runs||[]).length&&!(d.acts||[]).length;
+const isOldQuick=d=>!!d&&d.backfilled===true&&d.bfV!==2&&!(d.runs||[]).length&&!(d.acts||[]).length;
+// everything logged for one date + Days/Nights, from the same sources (and the same host rule) as statsData
+function gridSlot(ds,sh){const items=[];
+ allDays().filter(d=>d.date===ds&&shType(d)===sh).forEach(d=>items.push({kind:'day',d,driller:String(d.driller||'').trim()||myName(),m:dayCalc(d).mine.counted,open:isOpenDay(d),quick:isQuickDay(d)}));
+ const cr=crossDayList().filter(d=>d.date===ds&&shType(d)===sh);cr.forEach(d=>items.push({kind:'cross',d,driller:String(d.driller||'').trim(),m:dayCalc(d).mine.counted}));
+ if(!cr.length)allDays().filter(d=>d.date===ds&&crossLabel(d).startsWith(sh)).forEach(d=>{const c=d.cross||{},cc=crossCalc(c);if(!(cc.counted||cc.drill||c.from!=null))return;items.push({kind:'host',d,driller:String(c.driller||'').trim()||'Cross shift',m:cc.counted})});
+ return items}
+function gridRow(ds,today){const me=myTypeOn(ds),h=hitchInfo(ds),off=!!h&&!h.on;
+ // QA68-8b: on your day off an empty column (yours or the other crew's) is "off", never "missing"
+ const cell=sh=>{const it=gridSlot(ds,sh),m=r2(it.reduce((t,x)=>t+(+x.m||0),0));
+  const st=it.length?(it.some(x=>x.open)?'open':'ok'):ds>=today?'future':off?'off':'missing';return{sh,items:it,m,st,mine:sh===me}};
+ const c={Day:cell('Day'),Night:cell('Night')};return{ds,me,c,total:r2(c.Day.m+c.Night.m),future:ds>today}}
+const gridRowHtml=r=>`<button class="dg dgr${r.future?' fut':''}" data-a="gridDay" data-v="${r.ds}" id="gr_${r.ds}"><div class="gd"><b>${esc(DOW[parseD(r.ds).getDay()])}</b><br>${esc(mDay(r.ds))}</div>${gridCellHtml(r.c.Day,'gc_'+r.ds+'_Day')}${gridCellHtml(r.c.Night,'gc_'+r.ds+'_Night')}<div class="gt" id="gt_${r.ds}">${r.c.Day.items.length||r.c.Night.items.length?fm(r.total)+' m':''}</div></button>`;
+function gridCellHtml(x,id){const names=[...new Set(x.items.map(i=>i.driller))].join(' + ');
+ const st=x.st==='ok'?`<span class="grn">✔</span>`:x.st==='open'?`<span class="amb">● open</span>`:x.st==='missing'?`<span class="red">✖ missing</span>`:x.st==='off'?`<span class="mut">off</span>`:`<span class="mut">—</span>`;
+ return `<div class="gc${x.mine?' me':''}" id="${id}"><div class="gn">${st} ${esc(names)}</div>${x.items.length?`<div class="gm">${fm(x.m)} m</div>`:''}${x.items.length>1?`<div class="mut sm">${x.items.length} entries</div>`:''}</div>`}
+function vGrid(){const rg=gridRange(),today=workDate(),rows=[];for(let ds=rg.to;ds>=rg.from;ds=addDays(ds,-1))rows.push(gridRow(ds,today));
+ // today and the past first (newest at the top, no scrolling past empty days); the rest of the hitch below, greyed, soonest first
+ const past=rows.filter(r=>!r.future),fut=rows.filter(r=>r.future).reverse();
+ const miss=rows.reduce((n,r)=>n+(r.c.Day.st==='missing')+(r.c.Night.st==='missing'),0);
+ return `<button class="btn ghost" data-a="tab" data-v="shift" id="gridBack">← Back</button>
+ <div class="card"><h2>📅 Days – who drilled what</h2><p class="sm" id="gridInfo">${esc(rg.label)} · <span class="${miss?'red':'grn'}">${miss?`${miss} missing`:'nothing missing'}</span> · tap a day to change it</p>
+ <div class="dg dgh"><div>Date</div><div>☀ Day</div><div>🌙 Night</div><div>Total</div></div>
+ ${past.map(gridRowHtml).join('')}${fut.length?`<h3 id="gridFut">Still to come this hitch (${fut.length})</h3>${fut.map(gridRowHtml).join('')}`:''}
+ <p class="mut sm">The highlighted column is your shift. Metres are counted metres (with directional credit), the same as Totals and Stats.</p></div>`}
+// a quick-add row (the Add past shifts shape) for a date + shift; base = fields to keep from an existing entry (From/To, dir hours, hours, notes, helpers, drill)
+function gridNewRow(ds,sh,drl,m,base){const last=lastDay();
+ const r=Object.assign({date:ds,shift:sh,driller:drl,counted:'',countedEdited:false,dirH:'',from:'',to:'',hrs:'',notes:'',helpers:[],
+  drillType:String(last?.drillType||S.settings.drillType||'A5'),drillNumber:String(last?.drillNumber||S.settings.drillNumber||'')},base||{},{date:ds,shift:sh,driller:drl});
+ const fr=num(r.from),to=num(r.to),auto=fr!=null&&to!=null&&to>fr?r2(to-fr):null;if(auto==null){r.from='';r.to=''}
+ r.counted=auto!=null&&Math.abs(m-auto)<1e-9?'':String(m);r.countedEdited=r.counted!=='';return r}
+function gridFill(d,src){const l=lastDay(),pick=k=>(src&&src[k])||(l&&l[k])||'';d.job=pick('job');d.hole=pick('hole');d.size=pick('size')||d.size;return d} // job/hole/size: the entry's own, else the last shift's
+// counted metres on a quick-add / cross row, stored the way bfDay stores them (a typed number only when it differs from To − From)
+function gridSetM(d,m){const mi=d.mine||(d.mine={});const auto=mi.from!=null&&mi.to!=null&&mi.to>mi.from?r2(mi.to-mi.from):null;mi.m=auto!=null&&Math.abs(m-auto)<1e-9?null:m}
+const gridDayTxt=d=>`${shType(d)} · ${String(d.driller||'').trim()||myName()} ${fm(dayCalc(d).mine.counted)} m`;
+async function gridDay(ds){buzz();if(S&&S._corrupt){toast(loadError||'Your data could not be read – nothing can be changed',true);return}
+ const today=workDate();if(ds>today){toast(`${nice(ds)} hasn't happened yet`);return}
+ const me=myTypeOn(ds),plan={},fields=[],info=[];let openId=null;
+ for(const sh of ['Day','Night']){const it=gridSlot(ds,sh),p=sh==='Day'?'d':'n',who=sh===me?' (your shift)':'',L=`${sh==='Day'?'☀ Day':'🌙 Night'} shift${who}`;let mode='new',x=null,why='';
+  if(it.length>1){mode='ro';why=`${it.length} entries (${it.map(i=>`${i.driller} ${fm(i.m)} m`).join(', ')}) – change them in All shifts / Stats`;openId=openId||(it.find(i=>i.kind==='day')||{}).d?.id||null}
+  else if(it.length===1){x=it[0];
+   if(x.kind==='day'&&x.open){mode='ro';why=`${x.driller} · ${fm(x.m)} m – Shift is open – use the Shift screen / END SHIFT first.`}
+   else if(x.kind==='day'&&isOldQuick(x.d)){mode='ro';why=`${x.driller} · ${fm(x.m)} m – older entry – change it in All shifts.`;openId=openId||x.d.id} // QA68-8c
+   else if(x.kind==='day'&&!x.quick){mode='ro';why=`${x.driller} · ${fm(x.m)} m – this shift has timed runs or activities. Open the full shift to change it.`;openId=openId||x.d.id}
+   else mode='edit'}
+  plan[sh]={mode,x,p,mine:sh===me,dv:'',mv:null};
+  if(mode==='ro'){info.push(`<div class="gro" id="gro_${sh}"><b>${esc(L)}</b><br>${esc(why)}</div>`);continue}
+  const mc=x?(x.kind==='host'?crossCalc(x.d.cross||{}):mineCalc(x.d)):null,cred=mc?mc.cred:0;
+  const dv=x?x.driller:(sh===me?myName():(crossDayList().filter(d=>shType(d)===sh&&d.date<=ds).sort((a,b)=>b.date.localeCompare(a.date))[0]||{}).driller||'');
+  plan[sh].dv=dv;plan[sh].mv=mc?mc.drill:null;fields.push({k:p+'_drl',l:`${L} – driller`,t:'text',v:dv},{k:p+'_m',l:`${L} – metres${cred?` (+ ${fm(cred)} m directional credit)`:''}`,t:'num',v:mc?mc.drill:''});
+  if(x&&x.kind==='host')info.push(`<div class="mut sm" id="ghost_${sh}">${esc(L)}: typed on your ${esc(nice(x.d.date))} shift. Saving a change makes it a cross-shift row (stats use the row; your report keeps what you typed).</div>`)}
+ let bad='',vals={};
+ for(;;){fields.forEach(f=>{if(f.k in vals)f.v=vals[f.k]});
+  const v=await ask(`${nice(ds)}`,fields,{ok:fields.length?'✔ Save':'Close',alt:openId?'📂 Open full shift':null,focus:false,msg:(bad?`<div class="err" id="gridErr">✖ ${esc(bad)}</div>`:'')+info.join('')+(fields.length?'<div class="mut sm">Blank = no entry. Your shift counts in your totals and pay; the other crew\'s is stats only.</div>':'')});
+  if(!v)return;if(v._alt){viewDay=openId;tab='days';window.scrollTo(0,0);render();return}
+  if(!fields.length)return;vals=v;bad='';const todo=[];
+  const myOn=allDays().filter(d=>d.date===ds); // QA68-2: one shift of yours per date
+  for(const sh of ['Day','Night']){const P=plan[sh];if(P.mode==='ro')continue;const drl=String(v[P.p+'_drl']||'').replace(/\s+/g,' ').trim(),m=v[P.p+'_m'],x=P.x;
+   if(P.mode==='new'&&m==null&&(!drl||nameKey(drl)===nameKey(P.dv)))continue; // the prefilled name alone doesn't make an entry
+   if(P.mode==='edit'&&!drl&&m==null){bad=`${sh}: to remove an entry use All shifts (your shifts) or Stats (cross rows)`;break}
+   if(!drl){bad=`${sh}: enter the driller`;break}
+   if(m==null||!isFinite(m)){bad=`${sh}: enter the metres (0 if nothing was drilled)`;break}
+   if(m<0){bad=`${sh}: metres can't be negative`;break}
+   if(m>GRID_MAX_M){bad=`${sh}: ${fm(m)} m is too many for one shift (max ${GRID_MAX_M})`;break}
+   const meName=isMeLoose(drl);
+   // QA68-4/5: nothing typed differs from what is there (same name by the loose rule, same metres) → no change, nothing written
+   if(P.mode==='edit'&&Math.abs(m-(+P.mv||0))<1e-9&&(nameKey(drl)===nameKey(P.dv)||(meName&&isMeLoose(P.dv))))continue;
+   if(meName&&!P.mine&&!(x&&x.kind==='day')&&myOn.length){bad=`${sh}: that's your name – you already have a shift on ${nice(ds)} (${gridDayTxt(myOn[0])}); this column is the other crew's (stats only)`;break}
+   if(meName&&!P.mine&&!(x&&x.kind==='day')){bad=`${sh}: that's your name – this is the other crew's shift (stats only)`;break}
+   if(x&&x.kind==='host'&&meName){bad=`${sh}: that's your name – this is the other crew's shift`;break}
+   if((!x||x.kind==='cross')&&P.mine&&myOn.length){const e=myOn[0];bad=`${sh}: you already have a shift on ${nice(ds)} (${gridDayTxt(e)}) – change that one instead of adding a second`;break}
+   todo.push({sh,P,drl,m:r2(m),meName})}
+  if(bad)continue;
+  if(!todo.length){toast('Nothing changed');return}
+  let n=0;
+  todo.forEach(({sh,P,drl,m,meName})=>{const x=P.x;
+   if(!x){ // a new entry: your column → your shift (covered if someone else ran it); the other column → a cross-shift row
+    if(P.mine){const d=gridFill(bfDay(gridNewRow(ds,sh,myName(),m)));if(!meName){d.driller=drl;d.covered=true}S.days[d.id]=d}
+    else{const d=gridFill(bfDay(gridNewRow(ds,sh,drl,m)));S.crossDays[d.id]=d}
+    if(!meName)crossNames({driller:drl});n++;return}
+   if(x.kind==='day'){const d=x.d,was=JSON.stringify([d.driller,d.covered,d.mine]);
+    if(meName){d.driller=isMeLoose(d.driller)&&!d.covered?d.driller:myName();if(d.covered)d.covered=false}else{d.driller=drl;d.covered=true;crossNames({driller:drl})}
+    gridSetM(d,m);if(JSON.stringify([d.driller,d.covered,d.mine])!==was)n++;return}
+   if(x.kind==='cross'){const d=x.d;
+    if(meName){ // QA68-1: your column, a cross row (e.g. a covered night saved as a cross row) → your quick-add shift built from ALL its fields
+     const nd=gridFill(bfDay(gridNewRow(ds,sh,myName(),m,(b=>{if(!b.drillType)delete b.drillType;if(!b.drillNumber)delete b.drillNumber;return b})(crossRowOf(d)))),d);S.days[nd.id]=nd;delete S.crossDays[d.id];n++;return}
+    const was=JSON.stringify([d.driller,d.mine]);d.driller=drl;gridSetM(d,m);crossNames({driller:drl});if(JSON.stringify([d.driller,d.mine])!==was)n++;return}
+   if(x.kind==='host'){const c=x.d.cross||{}; // QA68-4: the new row keeps the typed From/To, directional hours and helper
+    const base={from:c.from==null?'':String(c.from),to:c.to==null?'':String(c.to),dirH:c.dir?String(c.dir):'',helpers:[c.helper].map(h=>String(h||'').trim()).filter(Boolean)};
+    const d=gridFill(bfDay(gridNewRow(ds,sh,drl,m,base)),x.d);S.crossDays[d.id]=d;crossNames({driller:drl});n++}});
+  if(!n){toast('Nothing changed');return}
+  const ok=save();render();if(ok)toastBig(`✔ ${nice(ds)} saved`);return}} // QA68-7: a failed save already shows its own warning
 
 /* ===== v6: Me vs cross shift stats – same calculator as the report (dayCalc / mineCalc / crossCalc / agg) ===== */
 let statF='all',statCustom={from:'',to:''},statPrintOn=false;
